@@ -14,24 +14,27 @@ def enable_evaluate_button(load_status):
 
 
 # 根据选择的模型类型动态更新模型选项
-def update_model_options(model_type):
-    if model_type == "Fine-tuned Judge Model":
-        return gr.update(choices=FINETUNED_JUDGE_MODELS, value=FINETUNED_JUDGE_MODELS[0][0])
+def update_model_choices(model_type):
+    if model_type == "微调裁判模型":
+        return gr.Dropdown(choices=list(FINETUNED_JUDGE_MODELS.keys()), value=list(FINETUNED_JUDGE_MODELS.keys())[0])
     else:
-        return gr.update(choices=PROPRIETARY_MODELS, value=PROPRIETARY_MODELS[0][0])
+        return gr.Dropdown(choices=list(PROPRIETARY_MODELS.keys()), value=list(PROPRIETARY_MODELS.keys())[0])
 
 
 def load_model_based_on_type(model_name, model_type, state):
-    state["model_type"] = model_type
-    if model_type == "Fine-tuned Judge Model":
-        if model_name.startswith("models/"):
-            load_status, button_state = load_model(model_name, state)
-            return load_status, gr.update(interactive=True)  # 始终保持按钮可用
-    elif model_type == "Proprietary Model":
-        if not model_name.startswith("models/"):
-            state["model_name"] = model_name
+    try:
+        if model_type == "Fine-tuned Judge Model":
+            model_path = FINETUNED_JUDGE_MODELS[model_name]  # 使用字典访问
+            load_status, button_state = load_model(model_path, state)
+            return load_status, gr.update(interactive=True)
+        elif model_type == "Proprietary Model":
+            model_path = PROPRIETARY_MODELS[model_name]  # 使用字典访问
+            state["model_name"] = model_path
             return f"API model {model_name} loaded successfully", gr.update(interactive=True)
-    return "无效的模型类型或路径", gr.update(interactive=True)  # 保证交互状态
+    except Exception as e:
+        return f"加载模型失败: {str(e)}", gr.update(interactive=True)
+
+
 # 手动评估中的校准模式显示逻辑
 def update_calibration_mode(model_type):
     if model_type == "Proprietary Model":

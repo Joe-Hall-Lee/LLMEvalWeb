@@ -29,6 +29,7 @@ from utils import (
 from webui.theme import Seafoam, css
 from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api
 from models.model import load_model, clear_model
+
 with gr.Blocks(theme=Seafoam(), css=css) as demo:
     gr.Markdown(
         """
@@ -67,7 +68,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     interactive=False
                 )
 
-
     # 绑定模型类型选择器的变更事件
     model_type_selector.change(
         fn=update_model_choices,
@@ -96,8 +96,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     instruction_input = gr.Textbox(
                         label="指令",
                         placeholder="请输入评估指令……",
-                        lines=3,
-                        elem_classes="input-box"
+                        lines=3
                     )
                 
             with gr.Row():
@@ -105,30 +104,42 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     answer1_input = gr.Textbox(
                         label="助手 1 回答",
                         placeholder="请输入第一个回答……",
-                        lines=3,
-                        elem_classes="input-box"
+                        lines=3
                     )
                 with gr.Column(scale=1):
                     answer2_input = gr.Textbox(
                         label="助手 2 回答", 
                         placeholder="请输入第二个回答……",
-                        lines=3,
-                        elem_classes="input-box"
+                        lines=3
                     )
             
-            with gr.Row():
+            # 将评估模式选择器和校准按钮放在同一列，校准按钮在下方
+            with gr.Column():
+                # 评估模式选择器
                 evaluation_mode_selector = gr.Radio(
-                    choices=["Direct Evaluation", "Chain of Thought (CoT)"],
+                    choices=["直接评估", "思维链"],
                     label="评估模式",
-                    value="Direct Evaluation",
-                    elem_classes="eval-mode"
+                    value="直接评估",
+                    visible=False  # 默认隐藏
                 )
+
+                # 校准模式开关
                 calibration_mode = gr.Checkbox(
-                    label="启用校准模式（仅支持专有模型）",
+                    label="启用校准",
                     value=False,
-                    visible=False
+                    visible=False  # 默认隐藏
                 )
-            
+
+            # 当模型类型改变时更新评估模式选择器和校准开关的可见性
+            model_type_selector.change(
+                fn=lambda model_type: [
+                    gr.update(visible=model_type == "专有模型"),  # 如果是专有模型，显示评估模式
+                    gr.update(visible=model_type == "专有模型"),  # 如果是专有模型，显示校准开关
+                ],
+                inputs=[model_type_selector],
+                outputs=[evaluation_mode_selector, calibration_mode]
+            )
+
             evaluate_btn = gr.Button(
                 "开始评估",
                 interactive=False
@@ -142,58 +153,66 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     label="评估结果",
                     interactive=False
                 )
-                details_output = gr.HTML("<div class='details-section'><h3>Details will appear here</h3></div>", visible=False, elem_classes=["details-section"])
+                details_output = gr.HTML("<div class='details-section'><h3>详情将在这里显示</h3></div>", visible=False, elem_classes=["details-section"])
                 details_button = gr.Button("显示详情")
-                evaluate_btn.click(manual_evaluate, inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode], outputs=[result_output, details_output]) #inputs 添加 evaluation_mode_selector
+                evaluate_btn.click(manual_evaluate, inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode], outputs=[result_output, details_output])
                 details_button.click(toggle_details, outputs=[details_output, details_button])
 
         with gr.TabItem("📊 批量评估"):
+
+            file_input = gr.File(
+                label="上传数据文件 (CSV/JSON)"
+            )
+            save_path_input = gr.Textbox(
+                label="保存路径",
+                placeholder="请输入结果保存路径……"
+            )
+                
+            # 批量评估模式和校准按钮的容器
+            with gr.Column():
+                batch_mode_selector = gr.Radio(
+                    choices=["直接评估", "思维链"],
+                    label="评估模式",
+                    value="直接评估",
+                    visible=False
+                )
+                batch_calibration_mode = gr.Checkbox(
+                    label="启用校准",
+                    value=False,
+                    visible=False
+                )
+            
+            # 将开始批量评估按钮单独放置，与模式和校准组件分隔开
+            batch_evaluate_btn = gr.Button(
+                "开始批量评估",
+                interactive=False
+            )
+            
             with gr.Group():
-                file_input = gr.File(
-                    label="上传数据文件 (CSV/JSON)",
-                    elem_classes="file-input"
-                )
-                save_path_input = gr.Textbox(
-                    label="保存路径",
-                    placeholder="请输入结果保存路径……",
-                    elem_classes="input-box"
-                )
-                
-                with gr.Row():
-                    batch_mode_selector = gr.Radio(
-                        choices=["Direct Evaluation", "Chain of Thought (CoT)"],
-                        label="批量评估模式",
-                        value="Direct Evaluation",
-                        elem_classes="eval-mode"
-                    )
-                    batch_calibration_mode = gr.Checkbox(
-                        label="启用批量校准模式 (仅支持专有模型)",
-                        value=False,
-                        visible=False,
-                        elem_classes="calibration-toggle"
-                    )
-                
-                batch_evaluate_btn = gr.Button(
-                    "开始批量评估",
+                batch_result_output = gr.Textbox(
+                    label="批量评估结果",
                     interactive=False
                 )
-                
-                with gr.Group():
-                    batch_result_output = gr.Textbox(
-                        label="批量评估结果",
-                        interactive=False
-                    )
-                    gr.Markdown(
-                        """
-                        #### 📋 支持的文件格式
-                        - CSV 文件: 包含 instruction, answer1, answer2 列
-                        - JSON 文件: 包含相应字段的数组
-                        """,
-                        elem_classes="format-help"
-                    )
+                gr.Markdown(
+                    """
+                    #### 📋 支持的文件格式
+                    - CSV 文件: 包含 instruction, answer1, answer2 列
+                    - JSON 文件: 包含相应字段的数组
+                    """
+                )
 
-                batch_evaluate_btn.click(batch_evaluation, inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode], outputs=batch_result_output)
-                model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
+        # 绑定模型类型选择器的变更事件
+        model_type_selector.change(
+            fn=lambda model_type: [
+                gr.update(visible=model_type == "专有模型"),
+                gr.update(visible=model_type == "专有模型"),
+            ],
+            inputs=[model_type_selector],
+            outputs=[batch_mode_selector, batch_calibration_mode]
+        )
+
+        batch_evaluate_btn.click(batch_evaluation, inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode], outputs=batch_result_output)
+        model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
 
     # 添加页脚
     gr.Markdown(

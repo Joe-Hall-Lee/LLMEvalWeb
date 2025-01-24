@@ -82,9 +82,9 @@ def update_batch_calibration_mode(model_type):
 
 
 def batch_evaluation(file, path, mode, state, calibration_mode):
+    model_name = state.get("model_name")
     model_type = state.get("model_type")
     if model_type == "专有模型":
-        model_name = state.get("model_name")
         if not model_name:
             return "请先加载 API 模型"
         if calibration_mode:
@@ -99,4 +99,4 @@ def batch_evaluation(file, path, mode, state, calibration_mode):
     if calibration_mode:
         raise "校准模式只能用于专有模型。"
 
-    return evaluate_batch(file, path, mode, llm, tokenizer, sampling_params)
+    return evaluate_batch(file, path, mode, llm, tokenizer, sampling_params, model_name)

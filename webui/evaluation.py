@@ -107,7 +107,7 @@ def evaluate(instruction, answer1, answer2, mode, llm=None, tokenizer=None, samp
     return verdict, details
 
 
-def evaluate_batch(file, output_path, mode, llm, tokenizer, sampling_params, model_name=None):
+def evaluate_batch(file, output_path, mode, llm, tokenizer, sampling_params, model_name):
     if file is None:
         return "请上传文件"
 

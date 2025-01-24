@@ -157,7 +157,6 @@ body {
     overflow: hidden;      /* 去掉滚动条 */
 }
 
-/* Additional Styling for Verdict */
 .details-section p {
     margin-top: 15px;
     font-size: 1.1em;

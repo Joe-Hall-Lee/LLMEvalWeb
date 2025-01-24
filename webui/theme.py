@@ -106,6 +106,7 @@ body {
     font-family: 'Poppins', sans-serif;
 }
 
+
 /* Details Section */
 .details-section {
     margin-top: 30px;

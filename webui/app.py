@@ -20,7 +20,7 @@ from utils import (
     show_calibration_mode,
     update_batch_calibration_mode,
     update_calibration_mode,
-    update_model_options,
+    update_model_choices,
     load_model_based_on_type,
     manual_evaluate,
     enable_evaluate_button,
@@ -41,7 +41,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
 
     with gr.Row():
         with gr.Column(scale=1):
-            with gr.Group(elem_classes="panel"):
+            with gr.Group():
                 gr.Markdown("### 📋 模型设置")
 
                 model_type_selector = gr.Radio(
@@ -90,7 +90,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     )
 
     with gr.Tabs() as tabs:
-        with gr.TabItem("📝 手动评估", elem_classes="tab-content"):
+        with gr.TabItem("📝 手动评估"):
             with gr.Row():
                 with gr.Column(scale=1):
                     instruction_input = gr.Textbox(
@@ -124,35 +124,31 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     elem_classes="eval-mode"
                 )
                 calibration_mode = gr.Checkbox(
-                    label="启用校准模式 (仅支持专有模型)",
+                    label="启用校准模式（仅支持专有模型）",
                     value=False,
-                    visible=False,
-                    elem_classes="calibration-toggle"
+                    visible=False
                 )
             
             evaluate_btn = gr.Button(
                 "开始评估",
-                interactive=False,
-                elem_classes="primary evaluate-btn"
+                interactive=False
             )
+
+            model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=evaluate_btn)
+            model_load_output.change(lambda x: gr.update(interactive=True), inputs=model_load_output, outputs=load_model_btn)
             
-            with gr.Group(elem_classes="results-panel"):
+            with gr.Group():
                 result_output = gr.Textbox(
                     label="评估结果",
-                    interactive=False,
-                    elem_classes="result-box"
+                    interactive=False
                 )
-                details_output = gr.HTML(
-                    visible=False,
-                    elem_classes="details-section"
-                )
-                details_button = gr.Button(
-                    "显示详情",
-                    elem_classes="secondary details-btn"
-                )
+                details_output = gr.HTML("<div class='details-section'><h3>Details will appear here</h3></div>", visible=False, elem_classes=["details-section"])
+                details_button = gr.Button("显示详情")
+                evaluate_btn.click(manual_evaluate, inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode], outputs=[result_output, details_output]) #inputs 添加 evaluation_mode_selector
+                details_button.click(toggle_details, outputs=[details_output, details_button])
 
-        with gr.TabItem("📊 批量评估", elem_classes="tab-content"):
-            with gr.Group(elem_classes="panel"):
+        with gr.TabItem("📊 批量评估"):
+            with gr.Group():
                 file_input = gr.File(
                     label="上传数据文件 (CSV/JSON)",
                     elem_classes="file-input"
@@ -179,24 +175,25 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 
                 batch_evaluate_btn = gr.Button(
                     "开始批量评估",
-                    interactive=False,
-                    elem_classes="primary evaluate-btn"
+                    interactive=False
                 )
                 
-                with gr.Group(elem_classes="results-panel"):
+                with gr.Group():
                     batch_result_output = gr.Textbox(
                         label="批量评估结果",
-                        interactive=False,
-                        elem_classes="result-box"
+                        interactive=False
                     )
                     gr.Markdown(
                         """
                         #### 📋 支持的文件格式
-                        - CSV文件: 包含 instruction, answer1, answer2 列
-                        - JSON文件: 包含相应字段的数组
+                        - CSV 文件: 包含 instruction, answer1, answer2 列
+                        - JSON 文件: 包含相应字段的数组
                         """,
                         elem_classes="format-help"
                     )
+
+                batch_evaluate_btn.click(batch_evaluation, inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode], outputs=batch_result_output)
+                model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
 
     # 添加页脚
     gr.Markdown(

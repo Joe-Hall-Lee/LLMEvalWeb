@@ -7,23 +7,50 @@ import sys
 # 添加到 sys.path 以导入其他模块
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from call_model import call_model
-
-def create_conversation(instruction, answer1, answer2, mode):
+from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
+def create_prompt(instruction, answer1, answer2, mode, model_name=None):
+    """
+    根据模型名称生成不同的 prompt 模板。
+    """
     if not instruction or not answer1 or not answer2:
         raise ValueError("Instruction, Answer 1, and Answer 2 cannot be empty.")
 
-    if mode == "Direct Evaluation":
-        return [
-            {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer."},
-            {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nPlease first output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. In the subsequent line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment."""},
-        ]
-    elif mode == "Chain of Thought (CoT)":
-        return [
-            {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer using a chain of thought reasoning approach."},
-            {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nIn the first line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.\nIn the subsequent line, please output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. There should be nothing on this line except two scores and a space."""},
-        ]
+    if model_name and "judgelm" in model_name.lower():
+        return f"""You are a helpful and precise assistant for checking the quality of the answer.
+[Question]
+{instruction}
+
+[The Start of Assistant 1's Answer]
+{answer1}
+
+[The End of Assistant 1's Answer]
+
+[The Start of Assistant 2's Answer]
+{answer2}
+
+[The End of Assistant 2's Answer]
+
+[System]
+We would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.
+Please rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.
+Please first output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. In the subsequent line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.
+
+### Response:"""
     else:
-        raise ValueError(f"Unsupported mode: {mode}")
+        # 对话式模板
+        if mode == "Direct Evaluation":
+            return [
+                {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer."},
+                {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nPlease first output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. In the subsequent line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment."""},
+            ]
+        elif mode == "Chain of Thought (CoT)":
+            return [
+                {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer using a chain of thought reasoning approach."},
+                {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nIn the first line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.\nIn the subsequent line, please output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. There should be nothing on this line except two scores and a space."""},
+            ]
+        else:
+            raise ValueError(f"Unsupported mode: {mode}")
+            
 
 def extract_scores(result, mode):
     try:
@@ -36,45 +63,49 @@ def extract_scores(result, mode):
     except (IndexError, ValueError):
         raise ValueError("Failed to parse scores from the evaluation result.")
 
+
 def evaluate(instruction, answer1, answer2, mode, llm=None, tokenizer=None, sampling_params=None, model_name=None):
-    try:
-        if model_name:
-            conversation = create_conversation(instruction, answer1, answer2, mode)
-            response = call_model(conversation, model_name)
-            if response:
-                result = response.strip()
-            else:
-                return "API 请求失败", ""
+    if model_name in PROPRIETARY_MODELS.values():
+        conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
+        response = call_model(conversation, model_name)
+        if response:
+            result = response.strip()
         else:
-            if llm is None or tokenizer is None or sampling_params is None:
-                return "请先加载模型", ""
-            conversation = create_conversation(instruction, answer1, answer2, mode)
+            return "API 请求失败", ""
+    else:
+        if llm is None or tokenizer is None or sampling_params is None:
+            return "请先加载模型", ""
+        conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
+
+        if tokenizer.chat_template is None:
+            prompt_token_ids = tokenizer.encode(conversation)
+        else:
             prompt_token_ids = tokenizer.apply_chat_template(conversation, add_generation_prompt=True)
-            outputs = llm.generate(prompt_token_ids=prompt_token_ids, sampling_params=sampling_params)
-            result = outputs[0].outputs[0].text.strip()
+        outputs = llm.generate(prompt_token_ids=prompt_token_ids, sampling_params=sampling_params)
+        result = outputs[0].outputs[0].text.strip()
 
+    try:
         scores = extract_scores(result, mode)
-        if len(scores) == 2:
-            score1, score2 = scores
-            verdict = "Assistant 1 is better " if score1 > score2 else ("Assistant 2 is better " if score2 > score1 else "Both assistants are equally good! ")
-        else:
-            verdict = "Error parsing scores."
+    except ValueError as e:
+        scores = ""
+    if len(scores) == 2:
+        score1, score2 = scores
+        verdict = "Assistant 1 is better " if score1 > score2 else ("Assistant 2 is better " if score2 > score1 else "Both assistants are equally good! ")
+    else:
+        verdict = "Error parsing scores. Please check the judge model output."
 
-        full_prompt = "\n".join([msg["content"] for msg in create_conversation(instruction, answer1, answer2, mode)])
+    full_prompt = "\n".join([msg["content"] for msg in create_prompt(instruction, answer1, answer2, mode)])
 
-        details = f"""
+    details = f"""
 <div class=\"details-section\">
-    <h3>‍👨🏽‍💻 User</h3>
-    <pre>{full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>')}</pre>
-    <h3>‍🧑‍⚖️ Judge Model</h3>
-    <pre>{result.replace('\n', '<br>')}</pre>
+<h3>‍👨🏽‍💻 User</h3>
+<pre>{full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\\n', '<br>')}</pre>
+<h3>‍🧑‍⚖️ Judge Model</h3>
+<pre>{result.replace('\\n', '<br>')}</pre>
 </div>
 """
+    return verdict, details
 
-        return verdict, details
-    except Exception as e:
-        details = f"<pre>Details: {str(e)}</pre>"
-        return "Error during evaluation", details
 
 def evaluate_batch(file, output_path, mode, llm, tokenizer, sampling_params, model_name=None):
     if file is None:
@@ -147,7 +178,7 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None, 
     surface_score_2 = float(surface_score_2)
 
     # 获取未校准分数
-    conversation = create_conversation(instruction, answer1, answer2, mode)
+    conversation = create_prompt(instruction, answer1, answer2, mode)
     response = call_model(conversation, model_name)
     if response:
         result = response.strip()
@@ -192,7 +223,7 @@ def toggle_details():
     details_visible = not details_visible
     return (
         gr.update(visible=details_visible),
-        "Hide Details" if details_visible else "Show Details",
+        "隐藏详情" if details_visible else "显示详情",
     )
 
 def calibrated_evaluation_batch(file, output_path, mode, model_name=None):

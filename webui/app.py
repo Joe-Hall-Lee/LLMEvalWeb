@@ -24,12 +24,12 @@ from utils import (
     load_model_based_on_type,
     manual_evaluate,
     enable_evaluate_button,
-    batch_evaluation
+    batch_evaluation,
+    update_model_type
 )
 from webui.theme import Seafoam, css
 from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api
 from models.model import load_model, clear_model
-
 with gr.Blocks(theme=Seafoam(), css=css) as demo:
     gr.Markdown(
         """
@@ -38,35 +38,87 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
         """
     )
     
-    state = gr.State({"llm": None, "tokenizer": None, "sampling_params": None, "model_name": None})
+    state = gr.State({
+        "llm": None, 
+        "tokenizer": None, 
+        "sampling_params": None, 
+        "model_name": None,
+        "model_type": "微调裁判模型"  # 默认模型类型
+    })
 
     with gr.Row():
         with gr.Column(scale=1):
             with gr.Group():
                 gr.Markdown("### 📋 模型设置")
 
+                # 添加评估模式选择器
+                eval_mode_selector = gr.Radio(
+                    label="评估模式",
+                    choices=["单模型评估", "级联评估"],
+                    value="单模型评估",
+                    interactive=True,
+                    elem_classes=["radio-group"]
+                )
+
                 model_type_selector = gr.Radio(
                     label="选择模型类型",
                     choices=["微调裁判模型", "专有模型"],
                     value="微调裁判模型",
-                    interactive=True  # 确保可交互
+                    interactive=True,
+                    elem_classes=["radio-group"]
                 )
 
                 model_selector = gr.Dropdown(
-                    label="选择模型",
+                    label="选择微调裁判模型",
                     choices=list(FINETUNED_JUDGE_MODELS.keys()),
                     value=list(FINETUNED_JUDGE_MODELS.keys())[0],
-                    interactive=True  # 确保可交互
+                    interactive=True,
+                    elem_classes=["dropdown"]
+                )
+
+                # 添加专有模型选择器，默认隐藏
+                proprietary_model_selector = gr.Dropdown(
+                    label="选择专有模型",
+                    choices=list(PROPRIETARY_MODELS.keys()),
+                    value=list(PROPRIETARY_MODELS.keys())[0],
+                    interactive=True,
+                    visible=False,
+                    elem_classes=["dropdown"]
+                )
+
+                # 添加阈值输入框，使用 Slider 组件
+                threshold_input = gr.Slider(
+                    label="置信度阈值",
+                    value=0.5,
+                    minimum=0.0,
+                    maximum=1.0,
+                    step=0.01,
+                    interactive=True,
+                    visible=False,
+                    elem_classes=["slider"]
                 )
                 
                 with gr.Row():
-                    load_model_btn = gr.Button("加载模型", variant="primary")
-                    unload_model_btn = gr.Button("卸载模型", variant="secondary")
+                    load_model_btn = gr.Button("加载模型", variant="primary", elem_classes=["primary-button"])
+                    unload_model_btn = gr.Button("卸载模型", variant="secondary", elem_classes=["secondary-button"])
                 
                 model_load_output = gr.Textbox(
                     label="模型状态",
-                    interactive=False
+                    interactive=False,
+                    elem_classes=["textbox"]
                 )
+
+    # 绑定评估模式选择器的变更事件
+    eval_mode_selector.change(
+        fn=lambda mode: [
+            gr.update(visible=mode == "单模型评估"),  # 单模型评估时显示
+            gr.update(visible=mode == "级联评估"),  # 级联评估时显示
+            gr.update(visible=mode == "级联评估"),  # 级联评估时显示
+            gr.update(choices=["微调裁判模型", "专有模型"] if mode == "单模型评估" else ["微调裁判模型"], value="微调裁判模型"),  # 动态调整 model_type_selector 的选项
+        ],
+        inputs=[eval_mode_selector],
+        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector]
+    )
 
     # 绑定模型类型选择器的变更事件
     model_type_selector.change(
@@ -78,7 +130,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     # 绑定加载模型按钮的点击事件
     load_model_btn.click(
         fn=load_model_based_on_type,
-        inputs=[model_selector, model_type_selector, state],
+        inputs=[model_selector, eval_mode_selector, state],
         outputs=[model_load_output, load_model_btn]
     )
 
@@ -118,7 +170,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 # 评估模式选择器
                 evaluation_mode_selector = gr.Radio(
                     choices=["直接评估", "思维链"],
-                    label="评估模式",
+                    label="推理策略",
                     value="直接评估",
                     visible=False  # 默认隐藏
                 )
@@ -138,6 +190,11 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 ],
                 inputs=[model_type_selector],
                 outputs=[evaluation_mode_selector, calibration_mode]
+            )
+            model_type_selector.change(
+                fn=update_model_type,
+                inputs=[model_type_selector, state],
+                outputs=[model_selector]
             )
 
             evaluate_btn = gr.Button(

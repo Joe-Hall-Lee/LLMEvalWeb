@@ -96,71 +96,220 @@ class Seafoam(Base):
             block_label_text_size="*text_md",
         )
 
-
 # Custom CSS for the application
 css = """
 /* General styles */
-body {
-    background-color: var(--body-background-fill);
-    color: var(--neutral-900);
-    font-family: 'Poppins', sans-serif;
+:root {
+    --background-light: #f5f7fa;
+    --background-dark: #1e1e1e;
+    --text-light: #2c3e50;
+    --text-dark: #ecf0f1;
+    --card-bg-light: #ffffff;
+    --card-bg-dark: #2c3e50;
+    --primary-color: #3498db;
+    --secondary-color: #e74c3c;
+    --hover-color: #2980b9;
+    --border-color-light: #dfe6e9;
+    --border-color-dark: #7f8c8d;
 }
 
+body {
+    background: var(--background-light);
+    color: var(--text-light);
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 20px;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+body.dark {
+    background: var(--background-dark);
+    color: var(--text-dark);
+}
+
+/* Header */
+#header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+#header h1 {
+    font-size: 2.5em;
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+#header h2 {
+    font-size: 1.5em;
+    color: var(--text-light);
+}
+
+body.dark #header h1,
+body.dark #header h2 {
+    color: var(--text-dark);
+}
+
+/* Main Layout */
+#main-row {
+    display: flex;
+    gap: 20px;
+}
+
+#model-settings-column {
+    flex: 1;
+    max-width: 300px;
+}
+
+#evaluation-column {
+    flex: 2;
+}
+
+/* Model Settings */
+#model-settings-group {
+    background: var(--card-bg-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark #model-settings-group {
+    background: var(--card-bg-dark);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+#model-settings-title {
+    font-size: 1.5em;
+    color: var(--text-light);
+    margin-bottom: 20px;
+}
+
+body.dark #model-settings-title {
+    color: var(--text-dark);
+}
+
+.dropdown .gr-dropdown {
+    border-radius: 8px;
+    border: 1px solid var(--border-color-light);
+    padding: 10px;
+    background: var(--card-bg-light);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark .dropdown .gr-dropdown {
+    background: var(--card-bg-dark);
+    border-color: var(--border-color-dark);
+}
+
+.dropdown .gr-dropdown:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Buttons */
+.primary-button {
+    background-color: var(--primary-color);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 10px 20px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.primary-button:hover {
+    background-color: var(--hover-color);
+    transform: translateY(-2px);
+}
+
+.secondary-button {
+    background-color: var(--secondary-color);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 10px 20px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.secondary-button:hover {
+    background-color: #c0392b;
+    transform: translateY(-2px);
+}
+
+/* Textbox */
+.textbox {
+    margin-bottom: 20px;
+}
+
+.textbox .gr-textbox {
+    border-radius: 8px;
+    border: 1px solid var(--border-color-light);
+    padding: 10px;
+    background: var(--card-bg-light);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark .textbox .gr-textbox {
+    background: var(--card-bg-dark);
+    border-color: var(--border-color-dark);
+}
+
+.textbox .gr-textbox:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
 
 /* Details Section */
 .details-section {
     margin-top: 30px;
     padding: 20px;
-    background-color: var(--neutral-100);
+    background: var(--card-bg-light);
     border-radius: 12px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--neutral-300);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color-light);
+}
+
+body.dark .details-section {
+    background: var(--card-bg-dark);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border-color: var(--border-color-dark);
 }
 
 .details-section h3 {
     margin-bottom: 15px;
     font-size: 1.3em;
-    color: var(--neutral-900);
+    color: var(--text-light);
     text-transform: uppercase;
 }
 
-/* Calibration Details List */
-.calibration-details {
-    list-style-type: none;
-    padding: 12px;
-    margin: 0;
-    background-color: var(--neutral-50);
-    border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
-.calibration-details li {
-    margin-bottom: 10px;
-    font-size: 1em;
-    color: var(--neutral-700);
-}
-
-.calibration-details li b {
-    color: var(--neutral-900);
+body.dark .details-section h3 {
+    color: var(--text-dark);
 }
 
 /* Preformatted Text */
 .details-section pre {
-    background-color: var(--neutral-200);
+    background: var(--card-bg-light);
     padding: 12px;
     border-radius: 8px;
     font-family: 'Fira Code', monospace;
-    color: var(--neutral-900);
+    color: var(--text-light);
     line-height: 1.5;
-    white-space: pre-wrap;  /* 自动换行 */
-    word-wrap: break-word; /* 强制单词换行 */
-    overflow: hidden;      /* 去掉滚动条 */
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+}
+
+body.dark .details-section pre {
+    background: var(--card-bg-dark);
+    color: var(--text-dark);
 }
 
 .details-section p {
     margin-top: 15px;
     font-size: 1.1em;
-    color: var(--neutral-800);
+    color: var(--text-light);
     font-weight: bold;
+}
+
+body.dark .details-section p {
+    color: var(--text-dark);
 }
 """

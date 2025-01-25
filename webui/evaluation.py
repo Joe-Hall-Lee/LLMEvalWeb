@@ -38,12 +38,12 @@ Please first output a single line containing only two values indicating the scor
 ### Response:"""
     else:
         # 对话式模板
-        if mode == "Direct Evaluation":
+        if mode == "直接评估":
             return [
                 {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer."},
                 {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nPlease first output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. In the subsequent line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment."""},
             ]
-        elif mode == "Chain of Thought (CoT)":
+        elif mode == "思维链":
             return [
                 {"role": "system", "content": "You are a helpful and precise assistant for checking the quality of the answer using a chain of thought reasoning approach."},
                 {"role": "user", "content": f"""[Question]\n{instruction}\n[The Start of Assistant 1's Answer]\n{answer1}\n[The End of Assistant 1's Answer]\n\n[The Start of Assistant 2's Answer]\n{answer2}\n[The End of Assistant 2's Answer]\n\nWe would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.\nPlease rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.\nIn the first line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.\nIn the subsequent line, please output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. There should be nothing on this line except two scores and a space."""},
@@ -54,9 +54,9 @@ Please first output a single line containing only two values indicating the scor
 
 def extract_scores(result, mode):
     try:
-        if mode == "Direct Evaluation":
+        if mode == "直接评估":
             return list(map(float, result.splitlines()[0].split()))
-        elif mode == "Chain of Thought (CoT)":
+        elif mode == "思维链":
             return list(map(float, result.splitlines()[-1].split()))
         else:
             raise ValueError("Unsupported mode for score extraction.")

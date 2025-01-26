@@ -25,7 +25,8 @@ from utils import (
     manual_evaluate,
     enable_evaluate_button,
     batch_evaluation,
-    update_model_type
+    update_model_type,
+    update_eval_mode
 )
 from webui.theme import Seafoam, css
 from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api
@@ -39,11 +40,9 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     )
     
     state = gr.State({
-        "llm": None, 
-        "tokenizer": None, 
-        "sampling_params": None, 
-        "model_name": None,
-        "model_type": "微调裁判模型"  # 默认模型类型
+        "tokenizer": None,
+        "model_type": "微调裁判模型",  # 默认模型类型
+        "eval_mode": "单模型评估"  # 默认评估模式
     })
 
     with gr.Row():
@@ -119,6 +118,11 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
         inputs=[eval_mode_selector],
         outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector]
     )
+    eval_mode_selector.change(
+        fn=update_eval_mode,
+        inputs=[eval_mode_selector, state],
+        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector]
+    )
 
     # 绑定模型类型选择器的变更事件
     model_type_selector.change(
@@ -130,7 +134,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     # 绑定加载模型按钮的点击事件
     load_model_btn.click(
         fn=load_model_based_on_type,
-        inputs=[model_selector, eval_mode_selector, state],
+        inputs=[model_selector, proprietary_model_selector, eval_mode_selector, state],
         outputs=[model_load_output, load_model_btn]
     )
 
@@ -154,13 +158,13 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
             with gr.Row():
                 with gr.Column(scale=1):
                     answer1_input = gr.Textbox(
-                        label="助手 1 回答",
+                        label="大模型 1 回答",
                         placeholder="请输入第一个回答……",
                         lines=3
                     )
                 with gr.Column(scale=1):
                     answer2_input = gr.Textbox(
-                        label="助手 2 回答", 
+                        label="大模型 2 回答", 
                         placeholder="请输入第二个回答……",
                         lines=3
                     )

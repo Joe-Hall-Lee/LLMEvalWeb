@@ -274,6 +274,7 @@ body.dark .details-section {
 }
 
 .details-section h3 {
+    font: normal 600 1.3em/1.5 'Poppins', sans-serif;
     margin-bottom: 15px;
     font-size: 1.3em;
     color: var(--text-light);
@@ -311,5 +312,41 @@ body.dark .details-section pre {
 
 body.dark .details-section p {
     color: var(--text-dark);
+}
+
+/* Calibration Details */
+.calibration-details {
+    margin-top: 15px;
+    padding-left: 20px;
+    list-style-type: disc;
+}
+
+.calibration-details li {
+    margin-bottom: 10px;
+    font-size: 1em;
+    color: var(--text-light);  /* 默认模式下的文字颜色 */
+}
+
+body.dark .calibration-details li {
+    color: var(--text-dark);  /* 暗黑模式下的文字颜色 */
+}
+
+.calibration-details li b {
+    color: var(--primary-color);  /* 默认模式下的加粗文字颜色 */
+}
+
+body.dark .calibration-details li b {
+    color: var(--hover-color);  /* 暗黑模式下的加粗文字颜色 */
+}
+
+.calibration-details p {
+    margin-top: 15px;
+    font-size: 1.1em;
+    color: var(--text-light);  /* 默认模式下的文字颜色 */
+    font-weight: bold;
+}
+
+body.dark .calibration-details p {
+    color: var(--text-dark);  /* 暗黑模式下的文字颜色 */
 }
 """

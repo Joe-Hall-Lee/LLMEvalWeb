@@ -5,6 +5,8 @@ import sys
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
 from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api, calculate_confidence
 from models.model import load_model, clear_model
+import pandas as pd
+import json
 
 
 # 启用评估按钮
@@ -154,24 +156,101 @@ def update_batch_calibration_mode(model_type):
 
 
 def batch_evaluation(file, path, mode, state, calibration_mode):
+    eval_mode = state.get("eval_mode")
     
-    model_type = state.get("model_type")
-    if model_type == "专有模型":
-        model_name = state.get("proprietary_model_name")
-        if not model_name:
-            return "请先加载 API 模型"
+    if eval_mode == "级联评估":
+        # 获取模型和阈值
+        llm = state.get("model")
+        tokenizer = state.get("tokenizer")
+        threshold = state.get("confidence_threshold", 0.5)
+        
+        if llm is None or tokenizer is None:
+            return "请先加载微调裁判模型"
+            
+        proprietary_model_name = state.get("proprietary_model_name")
+        if not proprietary_model_name:
+            return "请先加载专有模型"
+            
+        try:
+            df = pd.read_csv(file.name) if file.name.endswith('.csv') else pd.DataFrame(json.load(open(file.name)))
+        except Exception as e:
+            return f"文件读取失败：{str(e)}"
+            
+        results = []
+        details_list = []
+        
+        for _, row in df.iterrows():
+            instruction = row.get('instruction', '')
+            answer1 = row.get('answer1', '')
+            answer2 = row.get('answer2', '')
+            
+            if not all([instruction, answer1, answer2]):
+                results.append("数据不完整")
+                continue
+                
+            # 先用微调裁判模型评估
+            verdict, details, logprobs = evaluate(
+                instruction, answer1, answer2, 
+                mode, state, state.get("finetuned_model_name")
+            )
+            
+            # 计算置信度
+            confidence = calculate_confidence(logprobs)
+            
+            # 如果置信度低于阈值，使用专有模型重新评估
+            if confidence < threshold:
+                if calibration_mode:
+                    proprietary_verdict, proprietary_details = calibrated_evaluation(
+                        instruction, answer1, answer2, 
+                        mode, model_name=proprietary_model_name
+                    )
+                else:
+                    proprietary_verdict, proprietary_details, _ = evaluate(
+                        instruction, answer1, answer2,
+                        mode, state=state, 
+                        proprietary_model=proprietary_model_name
+                    )
+                verdict = proprietary_verdict
+                details += f"\n置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已使用专有模型重新评估"
+            else:
+                details += f"\n置信度: {confidence:.4f} (高于阈值 {threshold:.4f})"
+                
+            results.append(verdict)
+            details_list.append(details)
+            
+        # 保存结果
+        output_df = pd.DataFrame({
+            '指令': df.get('instruction', []),
+            '答案 1': df.get('answer1', []),
+            '答案 2': df.get('answer2', []),
+            '评估结果': results
+        })
+        
+        try:
+            output_df.to_csv(path, index=False, encoding='utf-8')
+            return f"评估结果已保存到 {path}"
+        except Exception as e:
+            return f"保存结果失败：{str(e)}"
+            
+    else:
+        # 原有的单模型评估逻辑
+        model_type = state.get("model_type")
+        if model_type == "专有模型":
+            model_name = state.get("proprietary_model_name")
+            if not model_name:
+                return "请先加载专有模型"
+            if calibration_mode:
+                return calibrated_evaluation_batch(file, path, mode, model_name=model_name)
+            return evaluate_batch_with_api(file, path, mode, model_name)
+
+        llm = state.get("model")
+        tokenizer = state.get("tokenizer")
+        if llm is None or tokenizer is None:
+            return "请先加载模型"
         if calibration_mode:
-            return calibrated_evaluation_batch(file, path, mode, model_name=model_name)
-        return evaluate_batch_with_api(file, path, mode, model_name)
+            return "校准模式只能用于专有模型"
 
-    llm = state.get("model")
-    tokenizer = state.get("tokenizer")
-    if llm is None or tokenizer is None:
-        return "请先加载模型"
-    if calibration_mode:
-        raise "校准模式只能用于专有模型。"
-
-    return evaluate_batch(file, path, mode, state)
+        return evaluate_batch(file, path, mode, state)
 
 
 # 绑定模型类型选择器的变更事件
@@ -183,11 +262,14 @@ def update_model_type(model_type, state):
 # 绑定评估模式选择器的变更事件
 def update_eval_mode(mode, state):
     state["eval_mode"] = mode  # 更新 state 中的 eval_mode
+    
     return [
-        gr.update(visible=mode == "单模型评估"),  # 单模型评估时显示
-        gr.update(visible=mode == "级联评估"),  # 级联评估时显示
-        gr.update(visible=mode == "级联评估"),  # 级联评估时显示
-        gr.update(choices=["微调裁判模型", "专有模型"] if mode == "单模型评估" else ["微调裁判模型"], value="微调裁判模型"),  # 动态调整 model_type_selector 的选项
-        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 在级联评估和单模型评估模式下都显示推理策略
-        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 在级联评估和单模型评估模式下都显示校准选项
+        gr.update(visible=mode == "单模型评估"),  # 单模型评估时显示模型类型选择器
+        gr.update(visible=mode == "级联评估"),  # 级联评估时显示专有模型选择器
+        gr.update(visible=mode == "级联评估"),  # 级联评估时显示置信度阈值输入框
+        gr.update(choices=["微调裁判模型", "专有模型"] if mode == "单模型评估" else ["微调裁判模型"], value="微调裁判模型"),  # 动态调整模型类型选择器
+        gr.update(visible=True),  # 手动评估中的推理策略始终显示
+        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 手动评估中的校准选项动态显示
+        gr.update(visible=True),  # 批量评估中的推理策略始终显示
+        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 批量评估中的校准选项动态显示
     ]

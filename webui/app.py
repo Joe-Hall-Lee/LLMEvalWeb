@@ -6,7 +6,6 @@ import gc
 import gradio as gr
 from gradio.components import Dropdown
 from transformers import AutoTokenizer
-from vllm import LLM, SamplingParams
 import requests
 import pandas as pd
 import json
@@ -41,8 +40,9 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     
     state = gr.State({
         "tokenizer": None,
-        "model_type": "微调裁判模型",  # 默认模型类型
-        "eval_mode": "单模型评估"  # 默认评估模式
+        "model_type": "微调裁判模型",
+        "eval_mode": "单模型评估",
+        "confidence_threshold": 0.5
     })
 
     with gr.Row():
@@ -75,7 +75,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     elem_classes=["dropdown"]
                 )
 
-                # 添加专有模型选择器，默认隐藏
                 proprietary_model_selector = gr.Dropdown(
                     label="选择专有模型",
                     choices=list(PROPRIETARY_MODELS.keys()),
@@ -85,7 +84,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     elem_classes=["dropdown"]
                 )
 
-                # 添加阈值输入框，使用 Slider 组件
                 threshold_input = gr.Slider(
                     label="置信度阈值",
                     value=0.5,
@@ -182,7 +180,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 details_button.click(toggle_details, outputs=[details_output, details_button])
 
         with gr.TabItem("📊 批量评估"):
-
             file_input = gr.File(
                 label="上传数据文件 (CSV/JSON)"
             )
@@ -190,39 +187,61 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 label="保存路径",
                 placeholder="请输入结果保存路径……"
             )
-                
-            # 批量评估模式和校准按钮的容器
+            
+            # 批量评估模式、校准按钮和置信度阈值的容器
             with gr.Column():
                 batch_mode_selector = gr.Radio(
                     choices=["直接评估", "思维链"],
-                    label="评估模式",
+                    label="推理策略",
                     value="直接评估",
-                    visible=False
+                    visible=True  # 默认显示
                 )
                 batch_calibration_mode = gr.Checkbox(
                     label="启用校准",
                     value=False,
-                    visible=False
+                    visible=False  # 默认隐藏，按需显示
                 )
-            
-            # 将开始批量评估按钮单独放置，与模式和校准组件分隔开
+
+            # 开始批量评估按钮
             batch_evaluate_btn = gr.Button(
                 "开始批量评估",
                 interactive=False
             )
             
-            with gr.Group():
-                batch_result_output = gr.Textbox(
-                    label="批量评估结果",
-                    interactive=False
-                )
-                gr.Markdown(
-                    """
-                    #### 📋 支持的文件格式
-                    - CSV 文件: 包含 instruction, answer1, answer2 列
-                    - JSON 文件: 包含相应字段的数组
-                    """
-                )
+            batch_result_output = gr.Textbox(
+                label="批量评估结果",
+                interactive=False
+            )
+            
+            gr.Markdown(
+                """
+                #### 📋 支持的文件格式
+                - CSV 文件: 包含 instruction, answer1, answer2 列
+                - JSON 文件: 包含相应字段的数组
+                """
+            )
+
+            # 绑定评估模式选择器的变更事件
+            eval_mode_selector.change(
+                fn=update_eval_mode,
+                inputs=[eval_mode_selector, state],
+                outputs=[
+                    model_type_selector,  # 更新模型类型选择器
+                    proprietary_model_selector,  # 更新专有模型选择器
+                    threshold_input,  # 更新手动评估置信度阈值
+                    model_type_selector,  # 更新手动评估模型类型选择器
+                    evaluation_mode_selector,  # 更新手动评估推理策略
+                    calibration_mode,  # 更新手动评估校准选项
+                    batch_mode_selector,  # 更新批量评估推理策略
+                    batch_calibration_mode,  # 更新批量评估校准选项
+                ]
+            )
+
+            batch_evaluate_btn.click(
+                batch_evaluation,
+                inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode],
+                outputs=batch_result_output
+            )
 
         # 绑定模型类型选择器的变更事件
         model_type_selector.change(
@@ -234,7 +253,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
             outputs=[batch_mode_selector, batch_calibration_mode]
         )
 
-        batch_evaluate_btn.click(batch_evaluation, inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode], outputs=batch_result_output)
         model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
 
     # 添加页脚
@@ -248,13 +266,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
         elem_classes="footer"
     )
 
-    
-    # 绑定评估模式选择器的变更事件
-    eval_mode_selector.change(
-        fn=update_eval_mode,
-        inputs=[eval_mode_selector, state],
-        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector, evaluation_mode_selector, calibration_mode]
-    )
 
     # 绑定模型类型选择器的变更事件
     model_type_selector.change(
@@ -275,6 +286,12 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
         fn=clear_model,
         inputs=[state],
         outputs=[model_load_output]
+    )
+
+    threshold_input.change(
+        lambda threshold, s: {**s, "confidence_threshold": threshold},
+        inputs=[threshold_input, state],
+        outputs=state
     )
 
 if __name__ == "__main__":

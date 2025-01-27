@@ -1,3 +1,31 @@
 Instruction,Answer 1,Answer 2,Evaluation Result,Evaluation Details
-What is the capital of France?,Paris,London,Error: 'NoneType' object has no attribute 'get',<pre>Details: 'NoneType' object has no attribute 'get'</pre>
-Who wrote '1984'?,George Orwell,Aldous Huxley,Error: 'NoneType' object has no attribute 'get',<pre>Details: 'NoneType' object has no attribute 'get'</pre>
+What is the capital of France?,Paris,London,大模型 1 更好 ,"
+<div class=""details-section"">
+    <h3>‍👨🏽‍💻 用户</h3>
+    <pre>You are a helpful and precise assistant for checking the quality of the answer using a chain of thought reasoning approach.<br>[Question]<br>What is the capital of France?<br>[The Start of Assistant 1's Answer]<br>Paris<br>[The End of Assistant 1's Answer]<br><br>[The Start of Assistant 2's Answer]<br>London<br>[The End of Assistant 2's Answer]<br><br>We would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.<br>Please rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.<br>In the first line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.<br>In the subsequent line, please output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. There should be nothing on this line except two scores and a space.</pre>
+    <h3>‍🧑‍⚖️ 裁判模型（原评估结果）</h3>
+    <pre>Assistant 1 provided the correct answer, ""Paris,"" which is the capital of France. The response is accurate, relevant, and sufficiently detailed for the question asked. Assistant 2, however, incorrectly stated ""London,"" which is the capital of the United Kingdom, not France. This response is inaccurate and therefore unhelpful. Given that the question is straightforward and requires a simple factual answer, Assistant 1's response meets the criteria for accuracy and relevance, while Assistant 2's does not.<br><br>10 1</pre>
+    <h3>🔧 校准详情</h3>
+    <ul class=""calibration-details"">
+        <li><b>原分数：</b>10.00 1.00</li>
+        <li><b>表面质量得分：</b>2.00 2.00</li>
+        <li><b>最终得分：</b>9.00 0.00</li>
+    </ul>
+    <p>评估结果：大模型 1 更好 </p>
+</div>
+"
+Who wrote '1984'?,George Orwell,Aldous Huxley,大模型 1 更好 ,"
+<div class=""details-section"">
+    <h3>‍👨🏽‍💻 用户</h3>
+    <pre>You are a helpful and precise assistant for checking the quality of the answer using a chain of thought reasoning approach.<br>[Question]<br>Who wrote '1984'?<br>[The Start of Assistant 1's Answer]<br>George Orwell<br>[The End of Assistant 1's Answer]<br><br>[The Start of Assistant 2's Answer]<br>Aldous Huxley<br>[The End of Assistant 2's Answer]<br><br>We would like to request your feedback on the performance of two AI assistants in response to the user question displayed above.<br>Please rate the helpfulness, relevance, accuracy, level of details of their responses. Each assistant receives an overall score on a scale of 1 to 10, where a higher score indicates better overall performance.<br>In the first line, please provide a comprehensive explanation of your evaluation, avoiding any potential bias and ensuring that the order in which the responses were presented does not affect your judgment.<br>In the subsequent line, please output a single line containing only two values indicating the scores for Assistant 1 and 2, respectively. The two scores are separated by a space. There should be nothing on this line except two scores and a space.</pre>
+    <h3>‍🧑‍⚖️ 裁判模型（原评估结果）</h3>
+    <pre>Assistant 1 correctly identified George Orwell as the author of '1984', which is accurate and directly answers the user's question. The response is concise but relevant and helpful. Assistant 2 incorrectly attributed the book to Aldous Huxley, who wrote 'Brave New World', not '1984'. This error significantly reduces the accuracy and helpfulness of the response. Given these considerations, Assistant 1 provides a much better answer.<br><br>8 2</pre>
+    <h3>🔧 校准详情</h3>
+    <ul class=""calibration-details"">
+        <li><b>原分数：</b>8.00 2.00</li>
+        <li><b>表面质量得分：</b>2.00 2.00</li>
+        <li><b>最终得分：</b>7.00 1.00</li>
+    </ul>
+    <p>评估结果：大模型 1 更好 </p>
+</div>
+"

@@ -168,7 +168,7 @@ def batch_evaluation(file, path, mode, state, calibration_mode):
     if calibration_mode:
         raise "校准模式只能用于专有模型。"
 
-    return evaluate_batch(file, path, mode, llm, tokenizer, sampling_params, model_name)
+    return evaluate_batch(file, path, mode, state)
 
 
 # 绑定模型类型选择器的变更事件

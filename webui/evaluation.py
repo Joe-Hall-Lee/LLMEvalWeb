@@ -74,7 +74,6 @@ def extract_scores(result, mode):
 def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, proprietary_model=None):
     # 创建 prompt
     conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
-    print(conversation)
     if not proprietary_model:
 
         model = state.get("model")
@@ -158,7 +157,7 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
 
 def evaluate_batch(file, output_path, mode, state):
     if file is None:
-        return "请上传文件", ""
+        return "请上传文件"
 
     try:
         if file.name.endswith('.csv'):
@@ -168,11 +167,11 @@ def evaluate_batch(file, output_path, mode, state):
                 data = json.load(f)
             df = pd.DataFrame(data)
         else:
-            return "仅支持 CSV 或 JSON 格式的文件", ""
+            return "仅支持 CSV 或 JSON 格式的文件"
     except (pd.errors.ParserError, json.JSONDecodeError) as e:
-        return f"文件解析错误：{e}", ""
+        return f"文件解析错误：{e}"
     except Exception as e:
-        return f"读取文件时出错：{e}", ""
+        return f"读取文件时出错：{e}"
 
     results = []
     for _, row in df.iterrows():
@@ -185,7 +184,10 @@ def evaluate_batch(file, output_path, mode, state):
             continue
 
         try:
-            verdict, _, _= evaluate(instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
+            if state.get("proprietary_model_name"):
+                verdict, _, _ = evaluate(instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
+            else:
+                verdict, _, _ = evaluate(instruction, answer1, answer2, mode, state, model_name=state.get("finetuned_model_name"))
             results.append(verdict)
         except Exception as e:
             results.append(f"错误：{str(e)}")
@@ -199,10 +201,9 @@ def evaluate_batch(file, output_path, mode, state):
 
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
-        return f"评估结果已保存到 {output_path}", ""
+        return f"评估结果已保存到 {output_path}"
     except Exception as e:
         return f"保存文件时出错：{str(e)}", ""
-
 
 details_visible = False
 
@@ -322,11 +323,10 @@ def calibrated_evaluation_batch(file, output_path, mode, model_name=None):
             details_list.append(f"<pre>Details: {str(e)}</pre>") # 错误信息也添加到详情中
 
     output_df = pd.DataFrame({
-        'Instruction': df.get('instruction', []),
-        'Answer 1': df.get('answer1', []),
-        'Answer 2': df.get('answer2', []),
-        'Evaluation Result': results,
-        'Evaluation Details': details_list # 将详细信息添加到 DataFrame
+        '指令': df.get('instruction', []),
+        '答案 1': df.get('answer1', []),
+        '答案 2': df.get('answer2', []),
+        '评估结果': results
     })
 
     try:
@@ -379,11 +379,10 @@ def evaluate_batch_with_api(file, output_path, mode, model_name):
             details_list.append(f"<pre>Details: {str(e)}</pre>")
 
     output_df = pd.DataFrame({
-        'Instruction': df.get('instruction', []),
-        'Answer 1': df.get('answer1', []),
-        'Answer 2': df.get('answer2', []),
-        'Evaluation Result': results,
-        'Evaluation Details': details_list
+        '指令': df.get('instruction', []),
+        '答案 1': df.get('answer1', []),
+        '答案 2': df.get('answer2', []),
+        '评估结果': results
     })
 
     try:

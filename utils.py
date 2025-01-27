@@ -83,7 +83,6 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
 
     if eval_mode == "级联评估":
         # 级联评估模式下，先使用微调裁判模型评估并计算置信度
-        print(state)
         llm = state.get("model")
         tokenizer = state.get("tokenizer")
 
@@ -99,15 +98,19 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
         # 如果置信度低于阈值，调用专有模型重新评估
         threshold = state.get("confidence_threshold", 0.5)  # 默认阈值为 0.5
         if confidence < threshold:
+                                
+            # 调用专有模型重新评估
             proprietary_model_name = state.get("proprietary_model_name")
             if proprietary_model_name:
-                # 调用专有模型重新评估
-                proprietary_verdict, proprietary_details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name
+                if calibration_mode:
+                    proprietary_verdict, proprietary_details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
+                else:
+                    proprietary_verdict, proprietary_details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name
 )
                 details += f"""
 <p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已调用专有模型重新评估。</p>
 <h3>‍🧑‍⚖️ 专有模型评估结果</h3>
-<pre>{proprietary_details.replace('\\n', '<br>')}</pre>
+{proprietary_details}
 """
                 verdict = proprietary_verdict  # 使用专有模型的评估结果
             else:
@@ -185,4 +188,6 @@ def update_eval_mode(mode, state):
         gr.update(visible=mode == "级联评估"),  # 级联评估时显示
         gr.update(visible=mode == "级联评估"),  # 级联评估时显示
         gr.update(choices=["微调裁判模型", "专有模型"] if mode == "单模型评估" else ["微调裁判模型"], value="微调裁判模型"),  # 动态调整 model_type_selector 的选项
+        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 在级联评估和单模型评估模式下都显示推理策略
+        gr.update(visible=mode == "级联评估" or mode == "单模型评估"),  # 在级联评估和单模型评估模式下都显示校准选项
     ]

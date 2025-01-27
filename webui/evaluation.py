@@ -243,8 +243,8 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     # 提取未校准分数
     original_scores = extract_scores(result, mode)
     if len(original_scores) == 2:
-        adjusted_score1 = original_scores[0] - 0.5 * surface_score_1
-        adjusted_score2 = original_scores[1] - 0.5 * surface_score_2
+        adjusted_score1 = original_scores[0] - 0.8 * surface_score_1
+        adjusted_score2 = original_scores[1] - 0.8 * surface_score_2
         verdict = "大模型 1 更好 " if adjusted_score1 > adjusted_score2 else ("大模型 2 更好 " if adjusted_score2 > adjusted_score1 else "两个大模型表现相当！")
     else:
         verdict = "Error parsing scores."

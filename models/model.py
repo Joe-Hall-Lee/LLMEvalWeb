@@ -45,7 +45,10 @@ def load_model(model_path, state):
 
 
 def clear_model(state):
-    model_name = state.get("finetuned_model_name")
+    if state.get("finetuned_model_name"):
+        model_name = state.get("finetuned_model_name")
+    elif state.get("proprietary_model_name"):
+        model_name = state.get("proprietary_model_name")
     if state.get("model"):
         del state["model"]
         state["model"] = None

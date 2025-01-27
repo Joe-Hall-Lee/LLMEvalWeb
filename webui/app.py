@@ -107,44 +107,6 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     elem_classes=["textbox"]
                 )
 
-    # 绑定评估模式选择器的变更事件
-    eval_mode_selector.change(
-        fn=lambda mode: [
-            gr.update(visible=mode == "单模型评估"),  # 单模型评估时显示
-            gr.update(visible=mode == "级联评估"),  # 级联评估时显示
-            gr.update(visible=mode == "级联评估"),  # 级联评估时显示
-            gr.update(choices=["微调裁判模型", "专有模型"] if mode == "单模型评估" else ["微调裁判模型"], value="微调裁判模型"),  # 动态调整 model_type_selector 的选项
-        ],
-        inputs=[eval_mode_selector],
-        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector]
-    )
-    eval_mode_selector.change(
-        fn=update_eval_mode,
-        inputs=[eval_mode_selector, state],
-        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector]
-    )
-
-    # 绑定模型类型选择器的变更事件
-    model_type_selector.change(
-        fn=update_model_choices,
-        inputs=[model_type_selector],
-        outputs=[model_selector]
-    )
-
-    # 绑定加载模型按钮的点击事件
-    load_model_btn.click(
-        fn=load_model_based_on_type,
-        inputs=[model_selector, proprietary_model_selector, eval_mode_selector, state],
-        outputs=[model_load_output, load_model_btn]
-    )
-
-    # 绑定卸载模型按钮的点击事件
-    unload_model_btn.click(
-        fn=clear_model,
-        inputs=[state],
-        outputs=[model_load_output]
-    )
-
     with gr.Tabs() as tabs:
         with gr.TabItem("📝 手动评估"):
             with gr.Row():
@@ -284,6 +246,35 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
         </div>
         """,
         elem_classes="footer"
+    )
+
+    
+    # 绑定评估模式选择器的变更事件
+    eval_mode_selector.change(
+        fn=update_eval_mode,
+        inputs=[eval_mode_selector, state],
+        outputs=[model_type_selector, proprietary_model_selector, threshold_input, model_type_selector, evaluation_mode_selector, calibration_mode]
+    )
+
+    # 绑定模型类型选择器的变更事件
+    model_type_selector.change(
+        fn=update_model_choices,
+        inputs=[model_type_selector],
+        outputs=[model_selector]
+    )
+
+    # 绑定加载模型按钮的点击事件
+    load_model_btn.click(
+        fn=load_model_based_on_type,
+        inputs=[model_selector, proprietary_model_selector, eval_mode_selector, state],
+        outputs=[model_load_output, load_model_btn]
+    )
+
+    # 绑定卸载模型按钮的点击事件
+    unload_model_btn.click(
+        fn=clear_model,
+        inputs=[state],
+        outputs=[model_load_output]
     )
 
 if __name__ == "__main__":

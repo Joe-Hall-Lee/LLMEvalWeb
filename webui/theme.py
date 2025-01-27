@@ -116,7 +116,7 @@ css = """
 body {
     background: var(--background-light);
     color: var(--text-light);
-    font-family: 'Poppins', sans-serif;
+    font: normal 600 1.3em/1.5 'Poppins', sans-serif;
     margin: 0;
     padding: 20px;
     transition: background 0.3s ease, color 0.3s ease;
@@ -276,7 +276,6 @@ body.dark .details-section {
 .details-section h3 {
     font: normal 600 1.3em/1.5 'Poppins', sans-serif;
     margin-bottom: 15px;
-    font-size: 1.3em;
     color: var(--text-light);
     text-transform: uppercase;
 }
@@ -316,6 +315,7 @@ body.dark .details-section p {
 
 /* Calibration Details */
 .calibration-details {
+    font: normal 600 1.3em/1.5 'Poppins', sans-serif;
     margin-top: 15px;
     padding-left: 20px;
     list-style-type: disc;
@@ -323,7 +323,6 @@ body.dark .details-section p {
 
 .calibration-details li {
     margin-bottom: 10px;
-    font-size: 1em;
     color: var(--text-light);  /* 默认模式下的文字颜色 */
 }
 

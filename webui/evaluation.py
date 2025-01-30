@@ -75,7 +75,6 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
     # 创建 prompt
     conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
     if not proprietary_model:
-
         model = state.get("model")
         tokenizer = state.get("tokenizer")
 

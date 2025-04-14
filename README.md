@@ -15,8 +15,8 @@ models: #关联模型
 #- iic/ofa_ocr-recognition_general_base_zh
 
 ## 启动文件(若SDK为Gradio/Streamlit，默认为app.py, 若为Static HTML, 默认为index.html)
-# deployspec:
-#   entry_file: app.py
+deployspec:
+  entry_file: webui/app.py
 license: Apache License 2.0
 ---
 #### Clone with HTTP

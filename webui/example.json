@@ -1,0 +1,12 @@
+[
+    {
+        "instruction": "What is the capital of France?",
+        "answer1": "Paris",
+        "answer2": "London"
+    },
+    {
+        "instruction": "Who wrote '1984'?",
+        "answer1": "George Orwell",
+        "answer2": "Aldous Huxley"
+    }
+]

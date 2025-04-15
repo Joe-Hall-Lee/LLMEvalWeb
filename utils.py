@@ -2,19 +2,19 @@ import gradio as gr
 import os
 import sys
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
-from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api, calculate_confidence
+from webui.evaluation import evaluate, evaluate_batch, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api, calculate_confidence
 import pandas as pd
 import json
 from modelscope import AutoModelForCausalLM, AutoTokenizer
 import gc
 import torch
-
+import uuid
+import tempfile
 
 def enable_evaluate_button(load_status):
     if "成功" in load_status.lower():
         return gr.update(interactive=True)
     return gr.update(interactive=False)
-
 
 def update_model_choices(model_type):
     if model_type == "微调裁判模型":
@@ -35,7 +35,6 @@ def update_model_choices(model_type):
                 visible=True
             )
         ]
-
 
 def load_model_based_on_type(model_type, finetuned_model_name, proprietary_model_name, eval_mode, state):
     if not isinstance(state, dict):
@@ -99,7 +98,6 @@ def load_model_based_on_type(model_type, finetuned_model_name, proprietary_model
     except Exception as e:
         return f"加载模型失败: {str(e)}", gr.update(interactive=True)
 
-
 def update_model_type(model_type, state):
     if not isinstance(state, dict):
         print(f"错误：state 不是字典，收到 {type(state)}: {state}")
@@ -107,12 +105,10 @@ def update_model_type(model_type, state):
     state["model_type"] = model_type
     return state
 
-
 def update_calibration_mode(model_type):
     if model_type == "专有模型":
         return gr.update(visible=True, value=False)
     return gr.update(visible=False, value=False)
-
 
 def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode):
     if not isinstance(state, dict):
@@ -135,56 +131,73 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
                     proprietary_verdict, proprietary_details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
                 else:
                     proprietary_verdict, proprietary_details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
-                details += f"""
-<p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已调用专有模型重新评估。</p>
-<h3>‍🧑‍⚖️ 专有模型评估结果</h3>
-{proprietary_details}
-"""
+                details = (
+                    "<div class='details-section'>"
+                    "<h3>级联评估详情</h3>"
+                    f"<p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已调用专有模型重新评估。</p>"
+                    f"{details}"
+                    "<h3>‍🧑‍⚖️ 专有模型评估结果</h3>"
+                    f"{proprietary_details}"
+                    "</div>"
+                )
                 verdict = proprietary_verdict
             else:
-                details += f"\n<p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，但未加载专有模型。</p>"
+                details = (
+                    "<div class='details-section'>"
+                    f"{details}"
+                    f"<p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，但未加载专有模型。</p>"
+                    "</div>"
+                )
         else:
-            details += f"\n<p>置信度: {confidence:.4f} (高于阈值 {threshold:.4f})</p>"
+            details = (
+                "<div class='details-section'>"
+                f"{details}"
+                f"<p>置信度: {confidence:.4f} (高于阈值 {threshold:.4f})</p>"
+                "</div>"
+            )
         return verdict, details, gr.update(visible=True)
     else:
         if model_type == "专有模型":
             if not proprietary_model_name:
                 return "请先加载模型", "", gr.update(visible=False)
             if calibration_mode:
-                return calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
-            return evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
+                verdict, details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
+                return verdict, details, gr.update(visible=True)
+            verdict, details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
+            return verdict, details, gr.update(visible=True)
         llm = state.get("model")
         tokenizer = state.get("tokenizer")
         if llm is None or tokenizer is None:
             return "请先加载模型", "", gr.update(visible=False)
-        return evaluate(instruction, answer1, answer2, mode, state=state, model_name=finetuned_model_name)
-
+        verdict, details, _ = evaluate(instruction, answer1, answer2, mode, state=state, model_name=finetuned_model_name)
+        return verdict, details, gr.update(visible=True)
 
 def update_batch_calibration_mode(model_type):
     if model_type == "专有模型":
         return gr.update(visible=True, value=False)
     return gr.update(visible=False, value=False)
 
-
 def batch_evaluation(file, mode, state, calibration_mode):
     if not isinstance(state, dict):
-        return f"错误：state 不是字典，收到 {type(state)}"
+        return f"错误：state 不是字典，收到 {type(state)}", None
     eval_mode = state.get("eval_mode")
     if eval_mode == "级联评估":
         llm = state.get("model")
         tokenizer = state.get("tokenizer")
         threshold = state.get("confidence_threshold", 0.5)
         if llm is None or tokenizer is None:
-            return "请先加载微调裁判模型"
+            return "请先加载微调裁判模型", None
         proprietary_model_name = state.get("proprietary_model_name")
         if not proprietary_model_name:
-            return "请先加载专有模型"
+            return "请先加载专有模型", None
         try:
             df = pd.read_csv(file.name) if file.name.endswith('.csv') else pd.DataFrame(json.load(open(file.name)))
         except Exception as e:
-            return f"文件读取失败：{str(e)}"
+            return f"文件读取失败：{str(e)}", None
         results = []
-        details_list = []
+        temp_dir = tempfile.gettempdir()
+        output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
+        output_path = os.path.join(temp_dir, output_filename)
         for _, row in df.iterrows():
             instruction = row.get('instruction', '')
             answer1 = row.get('answer1', '')
@@ -210,11 +223,21 @@ def batch_evaluation(file, mode, state, calibration_mode):
                         proprietary_model=proprietary_model_name
                     )
                 verdict = proprietary_verdict
-                details += f"\n置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已使用专有模型重新评估"
+                details = (
+                    "<div class='details-section'>"
+                    f"{details}"
+                    f"<p>置信度低于阈值 ({confidence:.4f} < {threshold:.4f})，已使用专有模型重新评估</p>"
+                    f"{proprietary_details}"
+                    "</div>"
+                )
             else:
-                details += f"\n置信度: {confidence:.4f} (高于阈值 {threshold:.4f})"
+                details = (
+                    "<div class='details-section'>"
+                    f"{details}"
+                    f"<p>置信度: {confidence:.4f} (高于阈值 {threshold:.4f})</p>"
+                    "</div>"
+                )
             results.append(verdict)
-            details_list.append(details)
         output_df = pd.DataFrame({
             '指令': df.get('instruction', []),
             '答案 1': df.get('answer1', []),
@@ -222,27 +245,26 @@ def batch_evaluation(file, mode, state, calibration_mode):
             '评估结果': results
         })
         try:
-            output_df.to_csv(path, index=False, encoding='utf-8')
-            return f"评估结果已保存到 {path}"
+            output_df.to_csv(output_path, index=False, encoding='utf-8')
+            return f"评估完成，点击下方下载报告", output_path
         except Exception as e:
-            return f"保存结果失败：{str(e)}"
+            return f"保存结果失败：{str(e)}", None
     else:
         model_type = state.get("model_type")
         if model_type == "专有模型":
             model_name = state.get("proprietary_model_name")
             if not model_name:
-                return "请先加载专有模型"
+                return "请先加载专有模型", None
             if calibration_mode:
-                return calibrated_evaluation_batch(file, path, mode, model_name=model_name)
-            return evaluate_batch_with_api(file, path, mode, model_name)
+                return calibrated_evaluation_batch(file, mode, model_name=model_name)
+            return evaluate_batch(file, mode, state)
         llm = state.get("model")
         tokenizer = state.get("tokenizer")
         if llm is None or tokenizer is None:
-            return "请先加载模型"
+            return "请先加载模型", None
         if calibration_mode:
-            return "校准模式只能用于专有模型"
+            return "校准模式只能用于专有模型", None
         return evaluate_batch(file, mode, state)
-
 
 def update_eval_mode(mode, state):
     if not isinstance(state, dict):
@@ -269,25 +291,16 @@ def update_eval_mode(mode, state):
         gr.update(visible=mode == "级联评估" or mode == "单模型评估"),
     ]
 
-
 def load_model(model_path, state):
     try:
-        # 加载 tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        
-        # 检查是否有可用的 GPU
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        # 加载模型并显式移动到 GPU（如果可用）
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-        ).to(device)  # 显式将模型移动到 GPU 或 CPU
-        
-        # 将模型和 tokenizer 存储到 state 中
+        ).to(device)
         state["model"] = model
         state["tokenizer"] = tokenizer
-        
         return "模型加载成功！", gr.update(interactive=True)
     except RuntimeError as re:
         print(f"RuntimeError during model loading: {re}")
@@ -309,16 +322,13 @@ def load_model(model_path, state):
     finally:
         gc.collect()
 
-
 def clear_model(state):
-    # 收集要卸载的模型名称
     model_names = []
     if state.get("finetuned_model_name"):
         model_names.append(state.get("finetuned_model_name"))
     if state.get("proprietary_model_name"):
         model_names.append(state.get("proprietary_model_name"))
     
-    # 清理微调模型相关资源
     if state.get("model"):
         del state["model"]
         state["model"] = None
@@ -326,16 +336,13 @@ def clear_model(state):
         del state["tokenizer"]
         state["tokenizer"] = None
     
-    # 清理 GPU 内存
-    if model_names:  # 仅在有模型时清理内存
+    if model_names:
         torch.cuda.empty_cache()
         gc.collect()
     
-    # 清理状态
     state["finetuned_model_name"] = None
     state["proprietary_model_name"] = None
     
-    # 返回卸载信息
     if not model_names:
         return "没有模型需要卸载"
     if len(model_names) == 1:

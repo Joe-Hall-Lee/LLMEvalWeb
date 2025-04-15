@@ -14,7 +14,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from call_model import call_model
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
 
-
 def create_prompt(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
         raise ValueError("Instruction, Answer 1, and Answer 2 cannot be empty.")
@@ -54,7 +53,6 @@ Please first output a single line containing only two values indicating the scor
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-
 def extract_scores(result, mode):
     result = result.strip()
     try:
@@ -66,7 +64,6 @@ def extract_scores(result, mode):
             raise ValueError("Unsupported mode for score extraction.")
     except (IndexError, ValueError):
         raise ValueError("Failed to parse scores from the evaluation result.")
-
 
 def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, proprietary_model=None):
     try:
@@ -136,20 +133,18 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
             "<pre>%s</pre>"
             "</div>"
         ) % (
-            full_prompt.replace('>', '>').replace('<', '<').replace('\n', '<br>'),
+            full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>'),
             result.replace('\n', '<br>')
         )
         return verdict, details, logprobs
     except Exception as e:
         return f"评估失败: {str(e)}", "", []
 
-
 def evaluate_batch(file, mode, state):
     if file is None:
-        return "请上传文件"
+        return "请上传文件", None
     
     try:
-        # 生成临时文件路径
         temp_dir = tempfile.gettempdir()
         output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
         output_path = os.path.join(temp_dir, output_filename)
@@ -160,11 +155,11 @@ def evaluate_batch(file, mode, state):
                 data = json.load(f)
             df = pd.DataFrame(data)
         else:
-            return "仅支持 CSV 或 JSON 格式的文件"
+            return "仅支持 CSV 或 JSON 格式的文件", None
     except (pd.errors.ParserError, json.JSONDecodeError) as e:
-        return f"文件解析错误：{e}"
+        return f"文件解析错误：{e}", None
     except Exception as e:
-        return f"读取文件时出错：{e}"
+        return f"读取文件时出错：{e}", None
     
     results = []
     for _, row in df.iterrows():
@@ -193,25 +188,10 @@ def evaluate_batch(file, mode, state):
     })
     
     try:
-        # 保存到临时文件
         output_df.to_csv(output_path, index=False, encoding='utf-8')
-        
         return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
         return f"保存文件时出错：{str(e)}", None
-
-
-details_visible = False
-
-
-def toggle_details():
-    global details_visible
-    details_visible = not details_visible
-    return (
-        gr.update(visible=details_visible),
-        "隐藏详情" if details_visible else "显示详情",
-    )
-
 
 def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
@@ -231,11 +211,11 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
         try:
             surface_score_1 = float(surface_score_1)
         except (ValueError, TypeError):
-            surface_score_1 = 0.0  # 如果转换失败，设为 0
+            surface_score_1 = 0.0
         try:
             surface_score_2 = float(surface_score_2)
         except (ValueError, TypeError):
-            surface_score_2 = 0.0  # 如果转换失败，设为 0
+            surface_score_2 = 0.0
         
         conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
         response = call_model(conversation, PROPRIETARY_MODELS[model_name])
@@ -253,7 +233,7 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
             verdict = "解析分数失败"
         
         full_prompt = "\n".join([msg["content"] for msg in conversation])
-        formatted_prompt = full_prompt.replace('>', '>').replace('<', '<').replace('\n', '<br>')
+        formatted_prompt = full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>')
         formatted_result = result.replace('\n', '<br>')
         
         details = """
@@ -285,11 +265,14 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     except Exception as e:
         return f"校准评估失败: {str(e)}", ""
 
-def calibrated_evaluation_batch(file, output_path, mode, model_name=None):
+def calibrated_evaluation_batch(file, mode, model_name=None):
     if file is None:
-        return "请上传文件"
+        return "请上传文件", None
     
     try:
+        temp_dir = tempfile.gettempdir()
+        output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
+        output_path = os.path.join(temp_dir, output_filename)
         if file.name.endswith('.csv'):
             df = pd.read_csv(file.name)
         elif file.name.endswith('.json'):
@@ -297,14 +280,13 @@ def calibrated_evaluation_batch(file, output_path, mode, model_name=None):
                 data = json.load(f)
             df = pd.DataFrame(data)
         else:
-            return "仅支持 CSV 或 JSON 格式的文件"
+            return "仅支持 CSV 或 JSON 格式的文件", None
     except (pd.errors.ParserError, json.JSONDecodeError) as e:
-        return f"文件解析错误：{e}"
+        return f"文件解析错误：{e}", None
     except Exception as e:
-        return f"读取文件时出错：{e}"
+        return f"读取文件时出错：{e}", None
     
     results = []
-    details_list = []
     for _, row in df.iterrows():
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
@@ -312,16 +294,13 @@ def calibrated_evaluation_batch(file, output_path, mode, model_name=None):
         
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
-            details_list.append("")
             continue
         
         try:
-            verdict, details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=model_name)
+            verdict, _ = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=model_name)
             results.append(verdict)
-            details_list.append(details)
         except Exception as e:
             results.append(f"错误：{str(e)}")
-            details_list.append(f"<pre>错误：{str(e)}</pre>")
     
     output_df = pd.DataFrame({
         '指令': df.get('instruction', []),
@@ -332,15 +311,18 @@ def calibrated_evaluation_batch(file, output_path, mode, model_name=None):
     
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
-        return f"评估结果已保存到 {output_path}"
+        return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
-        return f"保存文件时出错：{str(e)}"
+        return f"保存文件时出错：{str(e)}", None
 
-def evaluate_batch_with_api(file, output_path, mode, model_name):
+def evaluate_batch_with_api(file, mode, model_name):
     if file is None:
-        return "请上传文件"
+        return "请上传文件", None
     
     try:
+        temp_dir = tempfile.gettempdir()
+        output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
+        output_path = os.path.join(temp_dir, output_filename)
         if file.name.endswith('.csv'):
             df = pd.read_csv(file.name)
         elif file.name.endswith('.json'):
@@ -348,14 +330,13 @@ def evaluate_batch_with_api(file, output_path, mode, model_name):
                 data = json.load(f)
             df = pd.DataFrame(data)
         else:
-            return "仅支持 CSV 或 JSON 格式的文件"
+            return "仅支持 CSV 或 JSON 格式的文件", None
     except (pd.errors.ParserError, json.JSONDecodeError) as e:
-        return f"文件解析错误：{e}"
+        return f"文件解析错误：{e}", None
     except Exception as e:
-        return f"读取文件时出错：{e}"
+        return f"读取文件时出错：{e}", None
     
     results = []
-    details_list = []
     for _, row in df.iterrows():
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
@@ -363,16 +344,13 @@ def evaluate_batch_with_api(file, output_path, mode, model_name):
         
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
-            details_list.append("")
             continue
         
         try:
-            verdict, details, _ = evaluate(instruction, answer1, answer2, mode, proprietary_model=model_name)
+            verdict, _, _ = evaluate(instruction, answer1, answer2, mode, proprietary_model=model_name)
             results.append(verdict)
-            details_list.append(details)
         except Exception as e:
             results.append(f"错误：{str(e)}")
-            details_list.append(f"<pre>错误：{str(e)}</pre>")
     
     output_df = pd.DataFrame({
         '指令': df.get('instruction', []),
@@ -383,9 +361,9 @@ def evaluate_batch_with_api(file, output_path, mode, model_name):
     
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
-        return f"评估结果已保存到 {output_path}"
+        return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
-        return f"保存文件时出错：{str(e)}"
+        return f"保存文件时出错：{str(e)}", None
 
 def calculate_confidence(logprobs):
     if not logprobs:

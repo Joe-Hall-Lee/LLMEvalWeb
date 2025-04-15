@@ -74,7 +74,6 @@ class Seafoam(Base):
             button_cancel_background_fill="*button_secondary_background_fill",
             button_cancel_background_fill_hover="*button_secondary_background_fill_hover",
             button_cancel_text_color="*button_secondary_text_color",
-
             checkbox_label_border_color="*checkbox_background_color",
             checkbox_label_border_color_hover="*button_secondary_border_color_hover",
             checkbox_label_border_width="*button_border_width",
@@ -99,7 +98,7 @@ class Seafoam(Base):
 css = """
 /* General styles */
 :root {
-    --background-light: #f5f7fa;
+    --background-light: #f9fafb;
     --background-dark: #1e1e1e;
     --text-light: #2c3e50;
     --text-dark: #ecf0f1;
@@ -124,6 +123,12 @@ body {
 body.dark {
     background: var(--background-dark);
     color: var(--text-dark);
+}
+
+/* Prevent scrollbar hiding when modal is open */
+body.modal-open {
+    overflow: auto !important;
+    padding-right: 0 !important;
 }
 
 /* Header */
@@ -210,7 +215,7 @@ body.dark .dropdown .gr-dropdown {
 .primary-button {
     background-color: var(--primary-color);
     color: #ffffff;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 10px 20px;
     transition: background-color 0.3s ease, transform 0.3s ease;
 }
@@ -223,13 +228,28 @@ body.dark .dropdown .gr-dropdown {
 .secondary-button {
     background-color: var(--secondary-color);
     color: #ffffff;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 10px 20px;
     transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
 .secondary-button:hover {
     background-color: #c0392b;
+    transform: translateY(-2px);
+}
+
+/* Details Button (显示详情按钮) */
+.details-button {
+    display: inline-flex; /* 使用 flex 布局，确保内容居中 */
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    border-radius: 6px;
+    text-align: center;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.details-button:hover {
+    background-color: var(--hover-color);
     transform: translateY(-2px);
 }
 
@@ -264,8 +284,8 @@ body.dark .textbox .gr-textbox {
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--border-color-light);
-    transition: all 0.3s ease; /* 平滑过渡 */
-    overflow: hidden; /* 隐藏溢出内容 */
+    transition: all 0.3s ease;
+    overflow: hidden;
 }
 
 .details-section[style*="display: none"] {
@@ -283,41 +303,40 @@ body.dark .details-section {
 .details-section h3 {
     font: normal 600 1.3em/1.5 'Poppins', sans-serif;
     margin-bottom: 15px;
-    color: var(--text-light);
+    color: #2d3748;
     text-transform: uppercase;
 }
 
 body.dark .details-section h3 {
-    color: var(--text-dark);
+    color: #d1d5db;
 }
 
-/* Preformatted Text */
 .details-section pre {
     background: var(--card-bg-light);
     padding: 12px;
     border-radius: 8px;
     font-family: 'Fira Code', monospace;
-    color: var(--text-light);
+    color: #2d3748;
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 body.dark .details-section pre {
     background: var(--card-bg-dark);
-    color: var(--text-dark);
+    color: #d1d5db;
 }
 
 .details-section p {
     margin-top: 15px;
     font-size: 1.1em;
-    color: var(--text-light);
+    color: #2d3748;
     font-weight: bold;
 }
 
 body.dark .details-section p {
-    color: var(--text-dark);
+    color: #d1d5db;
 }
 
 /* Calibration Details */
@@ -330,29 +349,186 @@ body.dark .details-section p {
 
 .calibration-details li {
     margin-bottom: 10px;
-    color: var(--text-light);  /* 默认模式下的文字颜色 */
+    color: #2d3748;
 }
 
 body.dark .calibration-details li {
-    color: var(--text-dark);  /* 暗黑模式下的文字颜色 */
+    color: #d1d5db;
 }
 
 .calibration-details li b {
-    color: var(--primary-color);  /* 默认模式下的加粗文字颜色 */
+    color: var(--primary-color);
 }
 
 body.dark .calibration-details li b {
-    color: var(--hover-color);  /* 暗黑模式下的加粗文字颜色 */
+    color: var(--hover-color);
 }
 
 .calibration-details p {
     margin-top: 15px;
     font-size: 1.1em;
-    color: var(--text-light);  /* 默认模式下的文字颜色 */
+    color: #2d3748;
     font-weight: bold;
 }
 
 body.dark .calibration-details p {
-    color: var(--text-dark);  /* 暗黑模式下的文字颜色 */
+    color: #d1d5db;
+}
+
+/* Modal Overlay (遮罩层) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    animation: fadeInOverlay 0.3s ease-out;
+}
+
+/* Add modal-open class to body when modal is visible */
+.modal-overlay[style*="display: block"] ~ * {
+    /* Ensure the body gets the modal-open class when modal-overlay is visible */
+}
+body:has(.modal-overlay[style*="display: block"]) {
+    overflow: auto !important;
+    padding-right: 0 !important;
+}
+
+/* Modal Container (弹窗样式) */
+.modal-container {
+    position: fixed;
+    top: 10%;
+    left: 15%;
+    right: 15%;
+    bottom: 10%;
+    background: #ffffff;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    z-index: 1001;
+    padding: 20px;
+    overflow: hidden;
+    animation: fadeIn 0.3s ease-out;
+}
+
+body.dark .modal-container {
+    background: #1f252a;
+    border: 2px solid #374151;
+}
+
+.modal-container .close-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: #ef4444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1009;
+}
+
+.modal-container .close-button:hover {
+    background: #dc2626;
+    transform: scale(1.05);
+}
+
+.modal-container .close-button::before {
+    content: '×';
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.modal-content {
+    overflow-y: auto;
+    padding: 16px;
+    background: #ffffff;
+}
+
+body.dark .modal-content {
+    background: #1f252a;
+}
+
+.modal-content h3 {
+    color: #1f252a;
+    margin-bottom: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 4px;
+}
+
+body.dark .modal-content h3 {
+    color: #e2e8f0;
+    border-bottom: 2px solid #374151;
+}
+
+.modal-content hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 12px 0;
+}
+
+body.dark .modal-content hr {
+    border-top: 1px solid #374151;
+}
+
+.modal-content pre {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: #1f252a;
+}
+
+body.dark .modal-content pre {
+    background: #2d3748;
+    border: 1px solid #374151;
+    color: #e2e8f0;
+}
+
+.pretty-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.pretty-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pretty-scroll::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 3px;
+}
+
+.pretty-scroll::-webkit-scrollbar-thumb:hover {
+    background: #b0b7c0;
+}
+
+body.dark .pretty-scroll::-webkit-scrollbar-thumb {
+    background: #4b5563;
+}
+
+body.dark .pretty-scroll::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 """

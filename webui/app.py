@@ -21,7 +21,6 @@ from helpers import (
     show_batch_calibration_mode, show_calibration_mode
 )
 from webui.theme import Seafoam, css
-from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api
 
 with gr.Blocks(theme=Seafoam(), css=css) as demo:
     gr.Markdown(
@@ -127,11 +126,8 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     visible=False
                 )
             model_type_selector.change(
-                fn=lambda model_type: [
-                    gr.update(visible=model_type == "专有模型"),
-                    gr.update(visible=model_type == "专有模型"),
-                ],
-                inputs=[model_type_selector],
+                fn=show_calibration_mode,
+                inputs=[model_type_selector, eval_mode_selector],
                 outputs=[evaluation_mode_selector, calibration_mode]
             )
             model_type_selector.change(
@@ -142,16 +138,45 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 fn=update_model_choices,
                 inputs=[model_type_selector],
                 outputs=[model_selector, proprietary_model_selector]
+            ).then(
+                fn=update_calibration_mode,
+                inputs=[model_type_selector],
+                outputs=[state]
             )
             evaluate_btn = gr.Button("开始评估", interactive=False)
             model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=evaluate_btn)
-    
+
             with gr.Group():
                 result_output = gr.Textbox(label="评估结果", interactive=False)
-                details_output = gr.HTML("<div class='details-section'><h3>详情将在这里显示</h3></div>", visible=False, elem_classes=["details-section"], container=False)
-                details_button = gr.Button("显示详情")
-                evaluate_btn.click(manual_evaluate, inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode], outputs=[result_output, details_output])
-                details_button.click(toggle_details, outputs=[details_output, details_button])
+                details_button = gr.Button("显示详情", elem_classes=["details-button"])
+
+                # 遮罩层和弹窗
+                modal_overlay = gr.HTML('<div class="modal-overlay" style="display: none;"></div>', visible=False)
+                details_panel = gr.Group(visible=False, elem_classes=["modal-container"])
+                with details_panel:
+                    close_button = gr.Button("", elem_classes=["close-button"])
+                    details_output = gr.HTML(label="评估详情", elem_classes=["modal-content", "pretty-scroll"])
+
+            def show_details(verdict, details):
+                return verdict, details, gr.update(visible=True), gr.update(visible=True)
+
+            def hide_details():
+                return gr.update(visible=False), gr.update(visible=False)
+
+            evaluate_btn.click(
+                fn=manual_evaluate,
+                inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode],
+                outputs=[result_output, details_output]
+            )
+            details_button.click(
+                fn=lambda verdict, details: show_details(verdict, details),
+                inputs=[result_output, details_output],
+                outputs=[result_output, details_output, modal_overlay, details_panel]
+            )
+            close_button.click(
+                fn=hide_details,
+                outputs=[modal_overlay, details_panel]
+            )
 
         with gr.TabItem("📊 批量评估"):
             file_input = gr.File(label="上传数据文件 (CSV/JSON)")
@@ -160,7 +185,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     choices=["直接评估", "思维链"],
                     label="推理策略",
                     value="直接评估",
-                    visible=True
+                    visible=False
                 )
                 batch_calibration_mode = gr.Checkbox(label="启用校准", value=False, visible=False)
             batch_evaluate_btn = gr.Button("开始批量评估", interactive=False)
@@ -184,21 +209,23 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 ]
             )
 
+            model_type_selector.change(
+                fn=show_batch_calibration_mode,
+                inputs=[model_type_selector, eval_mode_selector],
+                outputs=[batch_mode_selector, batch_calibration_mode]
+            ).then(
+                fn=update_batch_calibration_mode,
+                inputs=[model_type_selector],
+                outputs=[state]
+            )
+
             batch_evaluate_btn.click(
-                batch_evaluation,
+                fn=batch_evaluation,
                 inputs=[file_input, batch_mode_selector, state, batch_calibration_mode],
                 outputs=[batch_result_output, report_download]
             ).then(
-                lambda: gr.update(visible=True),
+                fn=lambda: gr.update(visible=True),
                 outputs=report_download
-            )
-            model_type_selector.change(
-                fn=lambda model_type: [
-                    gr.update(visible=model_type == "专有模型"),
-                    gr.update(visible=model_type == "专有模型"),
-                ],
-                inputs=[model_type_selector],
-                outputs=[batch_mode_selector, batch_calibration_mode]
             )
             model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
 
@@ -244,7 +271,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     )
 
     threshold_input.change(
-        lambda threshold, s: {**s, "confidence_threshold": threshold},
+        fn=lambda threshold, s: {**s, "confidence_threshold": threshold},
         inputs=[threshold_input, state],
         outputs=state
     )

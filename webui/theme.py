@@ -264,6 +264,14 @@ body.dark .textbox .gr-textbox {
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--border-color-light);
+    transition: all 0.3s ease; /* 平滑过渡 */
+    overflow: hidden; /* 隐藏溢出内容 */
+}
+
+.details-section[style*="display: none"] {
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 body.dark .details-section {

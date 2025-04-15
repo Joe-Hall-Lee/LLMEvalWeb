@@ -13,13 +13,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
 from utils import (
-    show_batch_calibration_mode, show_calibration_mode, update_batch_calibration_mode,
+    update_batch_calibration_mode, clear_model,
     update_calibration_mode, update_model_choices, load_model_based_on_type,
     manual_evaluate, enable_evaluate_button, batch_evaluation, update_model_type, update_eval_mode
 )
+from helpers import (
+    show_batch_calibration_mode, show_calibration_mode
+)
 from webui.theme import Seafoam, css
 from webui.evaluation import evaluate, evaluate_batch, toggle_details, calibrated_evaluation, calibrated_evaluation_batch, evaluate_batch_with_api
-from models.model import clear_model
 
 with gr.Blocks(theme=Seafoam(), css=css) as demo:
     gr.Markdown(
@@ -146,14 +148,13 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
     
             with gr.Group():
                 result_output = gr.Textbox(label="评估结果", interactive=False)
-                details_output = gr.HTML("<div class='details-section'><h3>详情将在这里显示</h3></div>", visible=False, elem_classes=["details-section"])
+                details_output = gr.HTML("<div class='details-section'><h3>详情将在这里显示</h3></div>", visible=False, elem_classes=["details-section"], container=False)
                 details_button = gr.Button("显示详情")
                 evaluate_btn.click(manual_evaluate, inputs=[instruction_input, answer1_input, answer2_input, evaluation_mode_selector, state, calibration_mode], outputs=[result_output, details_output])
                 details_button.click(toggle_details, outputs=[details_output, details_button])
 
         with gr.TabItem("📊 批量评估"):
             file_input = gr.File(label="上传数据文件 (CSV/JSON)")
-            save_path_input = gr.Textbox(label="保存路径", placeholder="请输入结果保存路径……")
             with gr.Column():
                 batch_mode_selector = gr.Radio(
                     choices=["直接评估", "思维链"],
@@ -164,6 +165,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 batch_calibration_mode = gr.Checkbox(label="启用校准", value=False, visible=False)
             batch_evaluate_btn = gr.Button("开始批量评估", interactive=False)
             batch_result_output = gr.Textbox(label="批量评估结果", interactive=False)
+            report_download = gr.File(label="评估报告下载", visible=False, interactive=False) 
             gr.Markdown(
                 """
                 #### 📋 支持的文件格式
@@ -171,6 +173,7 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                 - JSON 文件: 包含相应字段的数组
                 """
             )
+
             eval_mode_selector.change(
                 fn=update_eval_mode,
                 inputs=[eval_mode_selector, state],
@@ -180,10 +183,14 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
                     batch_mode_selector, batch_calibration_mode
                 ]
             )
+
             batch_evaluate_btn.click(
                 batch_evaluation,
-                inputs=[file_input, save_path_input, batch_mode_selector, state, batch_calibration_mode],
-                outputs=batch_result_output
+                inputs=[file_input, batch_mode_selector, state, batch_calibration_mode],
+                outputs=[batch_result_output, report_download]
+            ).then(
+                lambda: gr.update(visible=True),
+                outputs=report_download
             )
             model_type_selector.change(
                 fn=lambda model_type: [

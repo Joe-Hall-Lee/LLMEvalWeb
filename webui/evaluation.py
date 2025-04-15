@@ -7,10 +7,13 @@ import torch
 import gc
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import numpy as np
+import tempfile
+import uuid
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from call_model import call_model
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
+
 
 def create_prompt(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
@@ -141,11 +144,15 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
         return f"评估失败: {str(e)}", "", []
 
 
-def evaluate_batch(file, output_path, mode, state):
+def evaluate_batch(file, mode, state):
     if file is None:
         return "请上传文件"
     
     try:
+        # 生成临时文件路径
+        temp_dir = tempfile.gettempdir()
+        output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
+        output_path = os.path.join(temp_dir, output_filename)
         if file.name.endswith('.csv'):
             df = pd.read_csv(file.name)
         elif file.name.endswith('.json'):
@@ -186,12 +193,16 @@ def evaluate_batch(file, output_path, mode, state):
     })
     
     try:
+        # 保存到临时文件
         output_df.to_csv(output_path, index=False, encoding='utf-8')
-        return f"评估结果已保存到 {output_path}"
+        
+        return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
-        return f"保存文件时出错：{str(e)}"
+        return f"保存文件时出错：{str(e)}", None
+
 
 details_visible = False
+
 
 def toggle_details():
     global details_visible
@@ -200,6 +211,7 @@ def toggle_details():
         gr.update(visible=details_visible),
         "隐藏详情" if details_visible else "显示详情",
     )
+
 
 def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:

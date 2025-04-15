@@ -12,7 +12,8 @@ datasets: #关联数据集
   train:
   #- iic/SIBR
 models: #关联模型
-#- iic/ofa_ocr-recognition_general_base_zh
+- BAAI/JudgeLM-7B-v1.0
+- JHL2004/JudgeLM-7B-Debiased
 
 ## 启动文件(若SDK为Gradio/Streamlit，默认为app.py, 若为Static HTML, 默认为index.html)
 deployspec:

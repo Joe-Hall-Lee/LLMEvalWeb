@@ -1,5 +1,5 @@
 import gc
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from modelscope import AutoModelForCausalLM, AutoTokenizer
 import torch
 import gradio as gr
 

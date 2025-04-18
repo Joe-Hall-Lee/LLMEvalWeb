@@ -14,6 +14,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from call_model import call_model
 from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
 
+
+REPORT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "reports"))
+os.makedirs(REPORT_DIR, exist_ok=True)  # 自动创建存储目录
+
 def create_prompt(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
         raise ValueError("Instruction, Answer 1, and Answer 2 cannot be empty.")
@@ -136,7 +140,7 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
             full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>'),
             result.replace('\n', '<br>')
         )
-        return verdict, details, logprobs
+        return verdict, details, logprobs, score1, score2
     except Exception as e:
         return f"评估失败: {str(e)}", "", []
 
@@ -146,8 +150,8 @@ def evaluate_batch(file, mode, state):
     
     try:
         temp_dir = tempfile.gettempdir()
-        output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
-        output_path = os.path.join(temp_dir, output_filename)
+        output_filename = f"eval_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        output_path = os.path.join(REPORT_DIR, output_filename)  # 保存到专用目录
         if file.name.endswith('.csv'):
             df = pd.read_csv(file.name)
         elif file.name.endswith('.json'):
@@ -162,6 +166,9 @@ def evaluate_batch(file, mode, state):
         return f"读取文件时出错：{e}", None
     
     results = []
+    scores1 = []
+    scores2 = []
+    winners = []
     for _, row in df.iterrows():
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
@@ -169,22 +176,43 @@ def evaluate_batch(file, mode, state):
         
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
+            scores1.append(None)
+            scores2.append(None)
+            winners.append("error")
             continue
         
         try:
             if state.get("proprietary_model_name"):
-                verdict, _, _ = evaluate(instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
+                verdict, _, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
             else:
-                verdict, _, _ = evaluate(instruction, answer1, answer2, mode, state, model_name=state.get("finetuned_model_name"))
+                verdict, _, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, state, model_name=state.get("finetuned_model_name"))
+
+            if score1 and score2:
+                winner = "model1" if score1 > score2 else ("model2" if score2 > score1 else "draw")
+            else:
+                score1 = None
+                score2 = None
+                winner = "error"
+            
             results.append(verdict)
+            scores1.append(score1)
+            scores2.append(score2)
+            winners.append(winner)
         except Exception as e:
             results.append(f"错误：{str(e)}")
+            scores1.append(None)
+            scores2.append(None)
+            winners.append("error")
     
+    # 保存时采用结构化存储
     output_df = pd.DataFrame({
-        '指令': df.get('instruction', []),
-        '答案 1': df.get('answer1', []),
-        '答案 2': df.get('answer2', []),
-        '评估结果': results
+        'instruction': df.get('instruction', []),
+        'answer1': df.get('answer1', []),
+        'answer2': df.get('answer2', []),
+        'score1': scores1,
+        'score2': scores2,
+        'winner': winners,
+        'verdict': results  # 保留原始文本结果
     })
     
     try:
@@ -336,7 +364,9 @@ def evaluate_batch_with_api(file, mode, model_name):
     except Exception as e:
         return f"读取文件时出错：{e}", None
     
-    results = []
+    scores1 = []
+    scores2 = []
+    winners = []
     for _, row in df.iterrows():
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
@@ -347,17 +377,35 @@ def evaluate_batch_with_api(file, mode, model_name):
             continue
         
         try:
-            verdict, _, _ = evaluate(instruction, answer1, answer2, mode, proprietary_model=model_name)
+            # 获取详细分数和结果
+            verdict, details, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, proprietary_model=model_name)
+
+            winner = "model1" if score1 > score2 else ("model2" if score2 > score1 else "draw")
+            
+            # 存储到不同列表
             results.append(verdict)
+            scores1.append(score1)
+            scores2.append(score2)
+            winners.append(winner)
+            
         except Exception as e:
+            # 错误处理
             results.append(f"错误：{str(e)}")
-    
+            scores1.append(None)
+            scores2.append(None)
+            winners.append("error")
+
+    # 保存时采用结构化存储
     output_df = pd.DataFrame({
-        '指令': df.get('instruction', []),
-        '答案 1': df.get('answer1', []),
-        '答案 2': df.get('answer2', []),
-        '评估结果': results
+        'instruction': df['instruction'],
+        'answer1': df['answer1'],
+        'answer2': df['answer2'],
+        'score1': scores1,
+        'score2': scores2,
+        'winner': winners,
+        'verdict': results  # 保留原始文本结果
     })
+
     
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')

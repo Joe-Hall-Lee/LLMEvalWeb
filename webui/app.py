@@ -21,6 +21,11 @@ from helpers import (
     show_batch_calibration_mode, show_calibration_mode
 )
 from webui.theme import Seafoam, css
+from visualization import analyze_results, update_report_list
+
+# 在 gr.Tabs 外部定义可视化组件
+stats_html = gr.HTML(visible=True)
+comp_plot = gr.Plot(label="模型对比分析", visible=True)
 
 with gr.Blocks(theme=Seafoam(), css=css) as demo:
     gr.Markdown(
@@ -226,9 +231,40 @@ with gr.Blocks(theme=Seafoam(), css=css) as demo:
             ).then(
                 fn=lambda: gr.update(visible=True),
                 outputs=report_download
+            ).then(
+                fn=analyze_results,
+                inputs=report_download,
+                outputs=[stats_html, comp_plot]
             )
             model_load_output.change(enable_evaluate_button, inputs=model_load_output, outputs=batch_evaluate_btn)
+        with gr.TabItem("📈 结果可视化", id="visualization_tab"):
+            with gr.Row():
+                with gr.Column(scale=1):
+                    report_selector = gr.Dropdown(
+                        label="选择评估报告",
+                        interactive=True,
+                        visible=True
+                    )
+                    refresh_btn = gr.Button("🔄 刷新报告列表", size="sm")
+                                            
+            with gr.Row():
+                with gr.Column(scale=1):
+                    stats_html = gr.HTML(label="统计摘要", visible=True, elem_id="stats_html")
+                with gr.Column(scale=2):
+                    comp_plot = gr.Plot(label="模型对比分析", visible=True, elem_id="comp_plot")
 
+            # 刷新报告列表
+            refresh_btn.click(
+                fn=update_report_list,
+                outputs=report_selector
+            )
+
+            # 选择报告后分析结果
+            report_selector.change(
+                fn=analyze_results,
+                inputs=report_selector,
+                outputs=[stats_html, comp_plot]
+            )
     gr.Markdown(
         """
         <div class="footer">

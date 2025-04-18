@@ -46,6 +46,7 @@ def load_model_based_on_type(model_type, finetuned_model_name, proprietary_model
                 if not finetuned_model_name:
                     return "错误：未选择微调模型", gr.update(interactive=True)
                 if finetuned_model_name not in FINETUNED_JUDGE_MODELS:
+                    print(f"错误：无效的微调模型 {finetuned_model_name}")
                     return f"错误：无效的微调模型 {finetuned_model_name}", gr.update(interactive=True)
                 model_path = FINETUNED_JUDGE_MODELS[finetuned_model_name]
                 if not isinstance(model_path, str):

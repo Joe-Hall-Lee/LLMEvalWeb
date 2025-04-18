@@ -170,23 +170,34 @@ body.dark #header h2 {
 
 /* Model Settings */
 #model-settings-group {
-    background: var(--card-bg-light);
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, #e6f0fa 0%, #d4f4e8 100%); /* 添加渐变背景 */
+    border-radius: 16px; /* 更现代的圆角 */
+    padding: 24px; /* 增加内边距，显得更宽松 */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* 更柔和的阴影 */
     margin-bottom: 30px;
-    transition: background 0.3s ease, box-shadow 0.3s ease;
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease; /* 添加 transform 过渡 */
+}
+
+#model-settings-group:hover {
+    transform: translateY(-4px); /* 鼠标悬停时轻微上移，增加交互感 */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 悬停时阴影加深 */
 }
 
 body.dark #model-settings-group {
-    background: var(--card-bg-dark);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #2c3e50 0%, #1a3c34 100%); /* 深色模式渐变 */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark #model-settings-group:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 #model-settings-title {
-    font-size: 1.5em;
+    font-size: 1.6em; /* 标题稍大 */
+    font-weight: 700; /* 加粗 */
     color: var(--text-light);
-    margin-bottom: 20px;
+    margin-bottom: 24px; /* 增加标题下间距 */
 }
 
 body.dark #model-settings-title {
@@ -531,4 +542,77 @@ body.dark .pretty-scroll::-webkit-scrollbar-thumb:hover {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
+/* 统计摘要样式 */
+.stats-summary {
+    background: var(--card-bg-light);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+body.dark .stats-summary {
+    background: var(--card-bg-dark);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.stat-label {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+body.dark .stat-label {
+    color: var(--text-dark);
+}
+
+/* 可视化标签页专属样式 */
+#visualization_tab {
+    padding: 20px;
+    background: var(--card-bg-light);
+    border-radius: 12px;
+}
+
+#visualization_tab .plot-container {
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color-light);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+body.dark #visualization_tab {
+    background: var(--card-bg-dark);
+}
+
+/* 报告选择器 */
+#report_selector {
+    max-width: 300px;
+    margin-left: auto;
+}
+
+/* 统计面板增强 */
+.stats-summary {
+    padding: 15px;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(5px);
+}
 """
+

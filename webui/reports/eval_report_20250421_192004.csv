@@ -1,0 +1,3 @@
+instruction,answer1,answer2,score1,score2,winner,verdict
+What is the capital of France?,Paris,London,10.0,1.0,model1,大模型 1 更好
+Who wrote '1984'?,George Orwell,Aldous Huxley,10.0,1.0,model1,大模型 1 更好

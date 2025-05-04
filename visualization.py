@@ -11,12 +11,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
 
-# 指定字体路径
-font_path = "assets/SourceHanSansCN-Normal.otf"
-font = FontProperties(fname=font_path)
 
 # 使用指定字体
-plt.rcParams['font.sans-serif'] = [font.get_name()]
 plt.rcParams['axes.unicode_minus'] = False
 
 # 报告存储目录，与 evaluation.py 保持一致
@@ -84,16 +80,8 @@ def generate_stats_summary(df):
     # 生成统计摘要的 HTML
     stats_html = """
     <div class="stats-summary">
-        <h3>统计摘要</h3>
+        <h3 style="color: #2c3e50; margin-bottom: 20px;">统计摘要</h3>
         <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{}</div>
-                <div class="stat-label">平均得分1</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{}</div>
-                <div class="stat-label">平均得分2</div>
-            </div>
             <div class="stat-item">
                 <div class="stat-value">{}</div>
                 <div class="stat-label">模型1胜率</div>
@@ -102,36 +90,85 @@ def generate_stats_summary(df):
                 <div class="stat-value">{}</div>
                 <div class="stat-label">模型2胜率</div>
             </div>
+            <div class="stat-item">
+                <div class="stat-value">{}</div>
+                <div class="stat-label">平局率</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{}</div>
+                <div class="stat-label">平均得分1</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{}</div>
+                <div class="stat-label">平均得分2</div>
+            </div>
         </div>
     </div>
     """.format(
-        df['score1'].mean(), df['score2'].mean(),
-        (df['winner'] == 'model1').mean(), (df['winner'] == 'model2').mean()
+        (df['winner'] == 'model1').mean() if 'winner' in df.columns else 0,
+        (df['winner'] == 'model2').mean() if 'winner' in df.columns else 0,
+        (df['winner'] == 'draw').mean() if 'winner' in df.columns else 0,
+        df['score1'].mean() if 'score1' in df.columns else 0,
+        df['score2'].mean() if 'score2' in df.columns else 0
     )
     return stats_html
 
 def generate_comparison_plot(df):
     # 设置 Seaborn 样式
-    sns.set(style="whitegrid")
+    sns.set(style="whitegrid", palette="pastel")
     
-    # 生成模型对比分析图
-    fig, ax = plt.subplots(figsize=(6, 4))
+    # 创建子图（改为左右排列）
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))  # 修改布局和尺寸
+    
+    # 胜率图
+    win_rates = [
+        (df['winner'] == 'model1').mean() if 'winner' in df.columns else 0,
+        (df['winner'] == 'model2').mean() if 'winner' in df.columns else 0
+    ]
     sns.barplot(
         x=['Model 1', 'Model 2'], 
-        y=[df['score1'].mean(), df['score2'].mean()], 
+        y=win_rates, 
         palette=['#1f77b4', '#ff7f0e'],  # 设置颜色
-        ax=ax
+        ax=ax1,
+        width=0.4  # 调整柱子宽度
     )
-    ax.set_title('Model Comparison', fontsize=14)
-    ax.set_ylabel('Average Score', fontsize=12)
-    ax.set_ylim(0, max(df['score1'].max(), df['score2'].max()) + 1)
+    ax1.set_title('Win Rates', fontsize=14, pad=20)
+    ax1.set_ylabel('Win Rate', fontsize=12)
+    ax1.set_ylim(0, 1)
     
     # 在柱状图上显示具体数值
-    for p in ax.patches:
-        ax.annotate(
+    for p in ax1.patches:
+        ax1.annotate(
+            f'{p.get_height():.2%}', 
+            (p.get_x() + p.get_width() / 2., p.get_height()), 
+            ha='center', va='center', fontsize=12, color='black', xytext=(0, 5), 
+            textcoords='offset points'
+        )
+    
+    # 平均得分图
+    avg_scores = [df['score1'].mean() if 'score1' in df.columns else 0, 
+                  df['score2'].mean() if 'score2' in df.columns else 0]
+    sns.barplot(
+        x=['Model 1', 'Model 2'], 
+        y=avg_scores, 
+        palette=['#1f77b4', '#ff7f0e'],  # 设置颜色
+        ax=ax2,
+        width=0.4  # 调整柱子宽度
+    )
+    ax2.set_title('Average Scores', fontsize=14, pad=20)
+    ax2.set_ylabel('Score', fontsize=12)
+    ax2.set_ylim(0, max(avg_scores) + 1)
+    
+    # 在柱状图上显示具体数值
+    for p in ax2.patches:
+        ax2.annotate(
             f'{p.get_height():.2f}', 
             (p.get_x() + p.get_width() / 2., p.get_height()), 
             ha='center', va='center', fontsize=12, color='black', xytext=(0, 5), 
             textcoords='offset points'
         )
+    
+    # 调整布局
+    plt.tight_layout()
+    
     return fig

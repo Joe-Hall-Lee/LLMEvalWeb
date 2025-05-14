@@ -123,7 +123,7 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
         tokenizer = state.get("tokenizer")
         if llm is None or tokenizer is None:
             return "请先加载微调模型", "", gr.update(visible=False)
-        verdict, details, logprobs = evaluate(instruction, answer1, answer2, mode, state, finetuned_model_name)
+        verdict, details, logprobs, _, _ = evaluate(instruction, answer1, answer2, mode, state, finetuned_model_name)
         confidence = calculate_confidence(logprobs)
         threshold = state.get("confidence_threshold", 0.5)
         if confidence < threshold:
@@ -131,7 +131,7 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
                 if calibration_mode:
                     proprietary_verdict, proprietary_details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
                 else:
-                    proprietary_verdict, proprietary_details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
+                    proprietary_verdict, proprietary_details, _, _, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
                 details = (
                     "<div class='details-section'>"
                     "<h3>级联评估详情</h3>"
@@ -170,7 +170,7 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
         tokenizer = state.get("tokenizer")
         if llm is None or tokenizer is None:
             return "请先加载模型", "", gr.update(visible=False)
-        verdict, details, _ = evaluate(instruction, answer1, answer2, mode, state=state, model_name=finetuned_model_name)
+        verdict, details, _, _, _ = evaluate(instruction, answer1, answer2, mode, state=state, model_name=finetuned_model_name)
         return verdict, details, gr.update(visible=True)
 
 def update_batch_calibration_mode(model_type):

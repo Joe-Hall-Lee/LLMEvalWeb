@@ -83,23 +83,23 @@ def generate_stats_summary(df):
         <h3 style="color: #2c3e50; margin-bottom: 20px;">统计摘要</h3>
         <div class="stats-grid">
             <div class="stat-item">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{:.2f}</div>
                 <div class="stat-label">模型1胜率</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{:.2f}</div>
                 <div class="stat-label">模型2胜率</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{:.2f}</div>
                 <div class="stat-label">平局率</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{:.2f}</div>
                 <div class="stat-label">平均得分1</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">{}</div>
+                <div class="stat-value">{:.2f}</div>
                 <div class="stat-label">平均得分2</div>
             </div>
         </div>
@@ -117,9 +117,8 @@ def generate_comparison_plot(df):
     # 设置 Seaborn 样式
     sns.set(style="whitegrid", palette="pastel")
     
-    # 创建子图（改为左右排列）
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))  # 修改布局和尺寸
-    
+    # 创建子图
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     # 胜率图
     win_rates = [
         (df['winner'] == 'model1').mean() if 'winner' in df.columns else 0,

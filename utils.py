@@ -164,7 +164,7 @@ def manual_evaluate(instruction, answer1, answer2, mode, state, calibration_mode
             if calibration_mode:
                 verdict, details = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=proprietary_model_name)
                 return verdict, details, gr.update(visible=True)
-            verdict, details, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
+            verdict, details, _, _, _ = evaluate(instruction, answer1, answer2, mode, state=state, proprietary_model=proprietary_model_name)
             return verdict, details, gr.update(visible=True)
         llm = state.get("model")
         tokenizer = state.get("tokenizer")

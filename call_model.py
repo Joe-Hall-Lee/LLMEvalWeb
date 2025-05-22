@@ -6,6 +6,7 @@ load_dotenv()  # 加载 .env 文件中的变量
 DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
+
 def call_model(prompt, modelname):
     if "qwen" in modelname.lower():
         BASE_URL = DASHSCOPE_BASE_URL
@@ -16,7 +17,7 @@ def call_model(prompt, modelname):
     else:
         print("模型名称不正确，请检查模型名称！")
         return
-    try: 
+    try:
         client = OpenAI(
             api_key=API_KEY,
             base_url=BASE_URL,

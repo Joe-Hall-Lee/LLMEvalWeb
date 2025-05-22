@@ -1,27 +1,27 @@
-import pandas as pd
-import json
-import gradio as gr
+from config import PROPRIETARY_MODELS
 import os
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))  # NOQA: E402
+from call_model import call_model
+import pandas as pd
+import json
+
 import torch
-import gc
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import numpy as np
 import tempfile
 import uuid
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from call_model import call_model
-from config import FINETUNED_JUDGE_MODELS, PROPRIETARY_MODELS
 
 
-REPORT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "reports"))
+REPORT_DIR = os.path.abspath(os.path.join(
+    os.path.dirname(__file__), "reports"))
 os.makedirs(REPORT_DIR, exist_ok=True)  # 自动创建存储目录
+
 
 def create_prompt(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
-        raise ValueError("Instruction, Answer 1, and Answer 2 cannot be empty.")
-    
+        raise ValueError(
+            "Instruction, Answer 1, and Answer 2 cannot be empty.")
+
     if model_name and "judgelm" in model_name.lower():
         return f"""You are a helpful and precise assistant for checking the quality of the answer.
 [Question]
@@ -57,6 +57,7 @@ Please first output a single line containing only two values indicating the scor
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
+
 def extract_scores(result, mode):
     result = result.strip()
     try:
@@ -69,26 +70,32 @@ def extract_scores(result, mode):
     except (IndexError, ValueError):
         raise ValueError("Failed to parse scores from the evaluation result.")
 
+
 def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, proprietary_model=None):
     try:
-        conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
+        conversation = create_prompt(
+            instruction, answer1, answer2, mode, model_name)
         if not proprietary_model:
             model = state.get("model")
             tokenizer = state.get("tokenizer")
             if model is None or tokenizer is None or model_name is None:
                 return "请先加载模型", "", []
-            
+
             if tokenizer.chat_template is None:
-                inputs = tokenizer(conversation, return_tensors="pt").to(model.device)
+                inputs = tokenizer(
+                    conversation, return_tensors="pt").to(model.device)
                 input_ids = inputs["input_ids"]
                 full_prompt = conversation
             else:
                 if not isinstance(conversation, list) or not all(isinstance(msg, dict) for msg in conversation):
-                    raise ValueError("Conversation must be a list of dictionaries with 'role' and 'content' keys.")
-                full_prompt = "\n".join([msg["content"] for msg in create_prompt(instruction, answer1, answer2, mode)])
-                input_ids = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, return_tensors="pt").to(model.device)
+                    raise ValueError(
+                        "Conversation must be a list of dictionaries with 'role' and 'content' keys.")
+                full_prompt = "\n".join(
+                    [msg["content"] for msg in create_prompt(instruction, answer1, answer2, mode)])
+                input_ids = tokenizer.apply_chat_template(
+                    conversation, add_generation_prompt=True, return_tensors="pt").to(model.device)
                 inputs = {"input_ids": input_ids}
-            
+
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
@@ -96,17 +103,18 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
                     return_dict_in_generate=True,
                     output_scores=True
                 )
-            
+
             generated_token_ids = outputs.sequences[0]
             input_length = input_ids.shape[1]
             output_token_ids = generated_token_ids[input_length:]
-            result = tokenizer.decode(output_token_ids, skip_special_tokens=True)
-            
+            result = tokenizer.decode(
+                output_token_ids, skip_special_tokens=True)
+
             logprobs = []
             for scores in outputs.scores:
                 logits = scores.log_softmax(dim=-1)
                 logprobs.append(logits)
-            
+
             confidence = calculate_confidence(logprobs)
             print(f"置信度: {confidence}")
         else:
@@ -114,21 +122,25 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
                 return f"错误：专有模型名称必须是字符串，收到 {type(proprietary_model)}", "", []
             if proprietary_model not in PROPRIETARY_MODELS:
                 return f"错误：无效的专有模型 {proprietary_model}", "", []
-            print(f"Calling call_model with proprietary_model: {proprietary_model}")
-            full_prompt = "\n".join([msg["content"] for msg in create_prompt(instruction, answer1, answer2, mode)])
-            result = call_model(conversation, PROPRIETARY_MODELS[proprietary_model])
+            print(
+                f"Calling call_model with proprietary_model: {proprietary_model}")
+            full_prompt = "\n".join(
+                [msg["content"] for msg in create_prompt(instruction, answer1, answer2, mode)])
+            result = call_model(
+                conversation, PROPRIETARY_MODELS[proprietary_model])
             if result is None:
                 return "错误：call_model 返回空结果", "", []
             print(f"call_model returned: {result}")
             logprobs = None
-        
+
         scores = extract_scores(result, mode)
         if len(scores) == 2:
             score1, score2 = scores
-            verdict = "大模型 1 更好" if score1 > score2 else ("大模型 2 更好" if score2 > score1 else "两个大模型表现相当！")
+            verdict = "大模型 1 更好" if score1 > score2 else (
+                "大模型 2 更好" if score2 > score1 else "两个大模型表现相当！")
         else:
             verdict = "解析分数失败。请检查评估模型的输出。"
-        
+
         details = (
             "<div class='details-section'>"
             "<h3>👨 用户</h3>"
@@ -137,17 +149,19 @@ def evaluate(instruction, answer1, answer2, mode, state=None, model_name=None, p
             "<pre>%s</pre>"
             "</div>"
         ) % (
-            full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>'),
+            full_prompt.replace('>', '&gt;').replace(
+                '<', '&lt;').replace('\n', '<br>'),
             result.replace('\n', '<br>')
         )
         return verdict, details, logprobs, score1, score2
     except Exception as e:
         return f"评估失败: {str(e)}", "", []
 
+
 def evaluate_batch(file, mode, state):
     if file is None:
         return "请上传文件", None
-    
+
     try:
         temp_dir = tempfile.gettempdir()
         output_filename = f"eval_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -164,7 +178,7 @@ def evaluate_batch(file, mode, state):
         return f"文件解析错误：{e}", None
     except Exception as e:
         return f"读取文件时出错：{e}", None
-    
+
     results = []
     scores1 = []
     scores2 = []
@@ -173,27 +187,30 @@ def evaluate_batch(file, mode, state):
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
         answer2 = row.get('answer2', '')
-        
+
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
             scores1.append(None)
             scores2.append(None)
             winners.append("error")
             continue
-        
+
         try:
             if state.get("proprietary_model_name"):
-                verdict, _, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
+                verdict, _, _, score1, score2 = evaluate(
+                    instruction, answer1, answer2, mode, state, proprietary_model=state.get("proprietary_model_name"))
             else:
-                verdict, _, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, state, model_name=state.get("finetuned_model_name"))
+                verdict, _, _, score1, score2 = evaluate(
+                    instruction, answer1, answer2, mode, state, model_name=state.get("finetuned_model_name"))
 
             if score1 and score2:
-                winner = "model1" if score1 > score2 else ("model2" if score2 > score1 else "draw")
+                winner = "model1" if score1 > score2 else (
+                    "model2" if score2 > score1 else "draw")
             else:
                 score1 = None
                 score2 = None
                 winner = "error"
-            
+
             results.append(verdict)
             scores1.append(score1)
             scores2.append(score2)
@@ -203,7 +220,7 @@ def evaluate_batch(file, mode, state):
             scores1.append(None)
             scores2.append(None)
             winners.append("error")
-    
+
     # 保存时采用结构化存储
     output_df = pd.DataFrame({
         'instruction': df.get('instruction', []),
@@ -214,28 +231,32 @@ def evaluate_batch(file, mode, state):
         'winner': winners,
         'verdict': results  # 保留原始文本结果
     })
-    
+
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
         return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
         return f"保存文件时出错：{str(e)}", None
 
+
 def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     if not instruction or not answer1 or not answer2:
-        raise ValueError("Instruction, Answer 1, and Answer 2 cannot be empty.")
-    
+        raise ValueError(
+            "Instruction, Answer 1, and Answer 2 cannot be empty.")
+
     def surface_quality_prompt(answer):
         return [
             {"role": "system", "content": "You are a meticulous evaluator whose task is to assess the superficial quality of an AI assistant's response, and you should focus specifically on language expression without considering the factual accuracy of the information provided."},
             {"role": "user", "content": f"""[The Start of Answer]\n{answer}\n[The End of Answer]\n\n[System]\nEvaluate the superficial quality of the provided answer in terms of linguistic expression and stylistic presentation. Provide a score between 1 and 10, where 10 signifies exceptional superficial articulation encompassing aspects such as lexical diversity, structural coherence, stylistic elegance, and overall fluidity. \nOn the first line, offer a detailed rationale for your score, explaining how well the answer demonstrates each assessed quality aspect. Your analysis should be thorough and impartial, focusing solely on superficial elements.\nOn the subsequent line, your rating should be presented as a numerical value without any other comments or explanations. There should be nothing on this line except a score."""}
         ]
-    
+
     try:
         if not isinstance(model_name, str):
             return f"错误：模型名称必须是字符串，收到 {type(model_name)}", ""
-        surface_score_1 = call_model(surface_quality_prompt(answer1), PROPRIETARY_MODELS[model_name]).strip().splitlines()[-1].strip()
-        surface_score_2 = call_model(surface_quality_prompt(answer2), PROPRIETARY_MODELS[model_name]).strip().splitlines()[-1].strip()
+        surface_score_1 = call_model(surface_quality_prompt(
+            answer1), PROPRIETARY_MODELS[model_name]).strip().splitlines()[-1].strip()
+        surface_score_2 = call_model(surface_quality_prompt(
+            answer2), PROPRIETARY_MODELS[model_name]).strip().splitlines()[-1].strip()
         try:
             surface_score_1 = float(surface_score_1)
         except (ValueError, TypeError):
@@ -244,26 +265,29 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
             surface_score_2 = float(surface_score_2)
         except (ValueError, TypeError):
             surface_score_2 = 0.0
-        
-        conversation = create_prompt(instruction, answer1, answer2, mode, model_name)
+
+        conversation = create_prompt(
+            instruction, answer1, answer2, mode, model_name)
         response = call_model(conversation, PROPRIETARY_MODELS[model_name])
         if response:
             result = response.strip()
         else:
             return "API 请求失败", ""
-        
+
         original_scores = extract_scores(result, mode)
         if len(original_scores) == 2:
             adjusted_score1 = original_scores[0] - 0.8 * surface_score_1
             adjusted_score2 = original_scores[1] - 0.8 * surface_score_2
-            verdict = "大模型 1 更好" if adjusted_score1 > adjusted_score2 else ("大模型 2 更好" if adjusted_score2 > adjusted_score1 else "两个大模型表现相当！")
+            verdict = "大模型 1 更好" if adjusted_score1 > adjusted_score2 else (
+                "大模型 2 更好" if adjusted_score2 > adjusted_score1 else "两个大模型表现相当！")
         else:
             verdict = "解析分数失败"
-        
+
         full_prompt = "\n".join([msg["content"] for msg in conversation])
-        formatted_prompt = full_prompt.replace('>', '&gt;').replace('<', '&lt;').replace('\n', '<br>')
+        formatted_prompt = full_prompt.replace(
+            '>', '&gt;').replace('<', '&lt;').replace('\n', '<br>')
         formatted_result = result.replace('\n', '<br>')
-        
+
         details = """
         <div class="details-section">
             <h3>‍👨🏽‍💻 用户</h3>
@@ -293,10 +317,11 @@ def calibrated_evaluation(instruction, answer1, answer2, mode, model_name=None):
     except Exception as e:
         return f"校准评估失败: {str(e)}", ""
 
+
 def calibrated_evaluation_batch(file, mode, model_name=None):
     if file is None:
         return "请上传文件", None
-    
+
     try:
         temp_dir = tempfile.gettempdir()
         output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
@@ -313,40 +338,42 @@ def calibrated_evaluation_batch(file, mode, model_name=None):
         return f"文件解析错误：{e}", None
     except Exception as e:
         return f"读取文件时出错：{e}", None
-    
+
     results = []
     for _, row in df.iterrows():
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
         answer2 = row.get('answer2', '')
-        
+
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
             continue
-        
+
         try:
-            verdict, _ = calibrated_evaluation(instruction, answer1, answer2, mode, model_name=model_name)
+            verdict, _ = calibrated_evaluation(
+                instruction, answer1, answer2, mode, model_name=model_name)
             results.append(verdict)
         except Exception as e:
             results.append(f"错误：{str(e)}")
-    
+
     output_df = pd.DataFrame({
         '指令': df.get('instruction', []),
         '答案 1': df.get('answer1', []),
         '答案 2': df.get('answer2', []),
         '评估结果': results
     })
-    
+
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
         return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
         return f"保存文件时出错：{str(e)}", None
 
+
 def evaluate_batch_with_api(file, mode, model_name):
     if file is None:
         return "请上传文件", None
-    
+
     try:
         temp_dir = tempfile.gettempdir()
         output_filename = f"eval_report_{uuid.uuid4().hex[:8]}.csv"
@@ -363,7 +390,8 @@ def evaluate_batch_with_api(file, mode, model_name):
         return f"文件解析错误：{e}", None
     except Exception as e:
         return f"读取文件时出错：{e}", None
-    
+
+    results = []
     scores1 = []
     scores2 = []
     winners = []
@@ -371,23 +399,25 @@ def evaluate_batch_with_api(file, mode, model_name):
         instruction = row.get('instruction', '')
         answer1 = row.get('answer1', '')
         answer2 = row.get('answer2', '')
-        
+
         if not instruction or not answer1 or not answer2:
             results.append("无效行：数据缺失")
             continue
-        
+
         try:
             # 获取详细分数和结果
-            verdict, details, _, score1, score2 = evaluate(instruction, answer1, answer2, mode, proprietary_model=model_name)
+            verdict, details, _, score1, score2 = evaluate(
+                instruction, answer1, answer2, mode, proprietary_model=model_name)
 
-            winner = "model1" if score1 > score2 else ("model2" if score2 > score1 else "draw")
-            
+            winner = "model1" if score1 > score2 else (
+                "model2" if score2 > score1 else "draw")
+
             # 存储到不同列表
             results.append(verdict)
             scores1.append(score1)
             scores2.append(score2)
             winners.append(winner)
-            
+
         except Exception as e:
             # 错误处理
             results.append(f"错误：{str(e)}")
@@ -406,22 +436,22 @@ def evaluate_batch_with_api(file, mode, model_name):
         'verdict': results  # 保留原始文本结果
     })
 
-    
     try:
         output_df.to_csv(output_path, index=False, encoding='utf-8')
         return f"评估完成，点击下方下载报告", output_path
     except Exception as e:
         return f"保存文件时出错：{str(e)}", None
 
+
 def calculate_confidence(logprobs):
     if not logprobs:
         return 0.0
-    
+
     entropy_list = []
     for logprob in logprobs:
         probs = torch.exp(logprob)
         entropy = -torch.sum(probs * logprob, dim=-1)
         entropy_list.append(entropy)
-    
+
     entropy_mean = torch.mean(torch.stack(entropy_list))
     return entropy_mean.item()
